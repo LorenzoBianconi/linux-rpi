@@ -116,14 +116,16 @@ static const struct iio_chan_spec hts221_channels[] = {
 		.address = REG_H_OUT_L,
 		.modified = 0,
 		.channel2 = IIO_NO_MOD,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED) |
+				      BIT(IIO_CHAN_INFO_SCALE),
 	},
 	{
 		.type = IIO_TEMP,
 		.address = REG_T_OUT_L,
 		.modified = 0,
 		.channel2 = IIO_NO_MOD,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED) |
+				      BIT(IIO_CHAN_INFO_SCALE),
 	},
 };
 
@@ -196,16 +198,15 @@ static int hts221_update_res(struct hts221_dev *dev,
 			     enum hts221_sensor_type type, u16 val)
 {
 	int i, err;
-	const struct hts221_settings *setting;
+	const struct hts221_settings *setting = &hts221_setting_list[type];
 
-	for (i = 0; i < ARRAY_SIZE(hts221_setting_list); i++)
+	for (i = 0; i < HTS221_RES_DEPTH; i++)
 		if (hts221_setting_list[type].res.res_avl[i].res == val)
 			break;
 
-	if (i == ARRAY_SIZE(hts221_setting_list))
+	if (i == HTS221_RES_DEPTH)
 		return -EINVAL;
 
-	setting = &hts221_setting_list[type];
 	err = hts221_write_with_mask(dev, setting->res.addr, setting->res.mask,
 				     setting->res.res_avl[i].val);
 	if (err < 0)
@@ -393,6 +394,16 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 
 			type = (ch->type == IIO_TEMP) ? HTS221_SENSOR_T
 						      : HTS221_SENSOR_H;
+			switch (ch->type) {
+			case IIO_HUMIDITYRELATIVE:
+				type = HTS221_SENSOR_H;
+				break;
+			case IIO_TEMP:
+				type = HTS221_SENSOR_T;
+				break;
+			default:
+				return -EINVAL;
+			}
 
 			mutex_lock(&dev->lock);
 
@@ -423,12 +434,74 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 			mutex_unlock(&dev->lock);
 		}
 		break;
+	case IIO_CHAN_INFO_SCALE: {
+		u8 idx;
+		enum hts221_sensor_type type;
+
+		*val2 = 0;
+		switch (ch->type) {
+		case IIO_HUMIDITYRELATIVE:
+			type = HTS221_SENSOR_H;
+			idx = dev->sensors[HTS221_SENSOR_H].cur_res_idx;
+			break;
+		case IIO_TEMP:
+			type = HTS221_SENSOR_T;
+			idx = dev->sensors[HTS221_SENSOR_T].cur_res_idx;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		*val = hts221_setting_list[type].res.res_avl[idx].res;
+		ret = IIO_VAL_INT;
+
+		break;
+	}
 	default:
 		ret = -EINVAL;
 		break;
 	}
 
 	return ret;
+}
+
+static int hts221_write_raw(struct iio_dev *indio_dev,
+			    struct iio_chan_spec const *ch,
+			    int val, int val2, long mask)
+{
+	int err;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_SCALE: {
+		enum hts221_sensor_type type;
+		struct hts221_dev *dev = iio_priv(indio_dev);
+
+		if (val2)
+			return -EINVAL;
+
+		switch (ch->type) {
+		case IIO_HUMIDITYRELATIVE:
+			type = HTS221_SENSOR_H;
+			break;
+		case IIO_TEMP:
+			type = HTS221_SENSOR_T;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		mutex_lock(&dev->lock);
+		err = hts221_update_res(dev, type, val);
+		mutex_unlock(&dev->lock);
+
+		break;
+	}
+	default:
+		err = -EINVAL;
+		break;
+	}
+
+	return err;
 }
 
 static IIO_DEV_ATTR_SAMP_FREQ_AVAIL(hts221_sysfs_sampling_freq);
@@ -450,6 +523,7 @@ static const struct iio_info hts221_info = {
 	.driver_module = THIS_MODULE,
 	.attrs = &hts221_attribute_group,
 	.read_raw = &hts221_read_raw,
+	.write_raw = &hts221_write_raw,
 };
 
 int hts221_probe(struct iio_dev *indio_dev)
