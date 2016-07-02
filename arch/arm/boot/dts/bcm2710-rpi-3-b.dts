@@ -137,6 +137,11 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c1_pins>;
 	clock-frequency = <100000>;
+
+	hts221@5f {
+		compatible = "st,hts221";
+		reg = <0x5f>;
+	};
 };
 
 &i2c2 {
