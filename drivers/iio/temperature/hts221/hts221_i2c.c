@@ -81,10 +81,8 @@ static int hts221_i2c_probe(struct i2c_client *client,
 	dev->tf = &hts221_transfer_fn;
 
 	err = hts221_probe(indio_dev);
-	if (err < 0) {
-		devm_iio_device_free(&client->dev, indio_dev);
+	if (err < 0)
 		return err;
-	}
 
 	dev_info(&client->dev, "hts221 i2c sensor probed\n");
 	return 0;

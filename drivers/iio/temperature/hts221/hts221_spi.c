@@ -21,7 +21,8 @@ static int hts221_spi_read(struct device *device, u8 addr, int len, u8 *data)
 	int err;
 	struct spi_message msg;
 	struct spi_device *spi = to_spi_device(device);
-	struct hts221_dev *dev = spi_get_drvdata(spi);
+	struct iio_dev *indio_dev = spi_get_drvdata(spi);
+	struct hts221_dev *dev = iio_priv(indio_dev);
 
 	struct spi_transfer xfers[] = {
 		{
@@ -57,7 +58,8 @@ static int hts221_spi_write(struct device *device, u8 addr, int len, u8 *data)
 {
 	struct spi_message msg;
 	struct spi_device *spi = to_spi_device(device);
-	struct hts221_dev *dev = spi_get_drvdata(spi);
+	struct iio_dev *indio_dev = spi_get_drvdata(spi);
+	struct hts221_dev *dev = iio_priv(indio_dev);
 
 	struct spi_transfer xfers = {
 		.tx_buf = dev->tb.tx_buf,
@@ -104,10 +106,8 @@ static int hts221_spi_probe(struct spi_device *spi)
 	dev->tf = &hts221_transfer_fn;
 
 	err = hts221_probe(indio_dev);
-	if (err < 0) {
-		devm_iio_device_free(&spi->dev, indio_dev);
+	if (err < 0)
 		return err;
-	}
 
 	dev_info(&spi->dev, "hts221 spi sensor probed\n");
 	return 0;
