@@ -10,7 +10,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/i2c.h> 
+#include <linux/i2c.h>
 #include "hts221.h"
 
 #define I2C_AUTO_INCREMENT	0x80

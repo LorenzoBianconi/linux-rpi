@@ -262,7 +262,6 @@ hts221_sysfs_set_sampling_frequency(struct device *device,
 	return err < 0 ? err : size;
 }
 
-
 static int hts221_power_on(struct hts221_dev *dev)
 {
 	u8 idx;
@@ -318,12 +317,15 @@ static int hts221_get_caldata(struct hts221_dev *dev,
 		addr_x0 = REG_0RH_CAL_X_H;
 		addr_x1 = REG_1RH_CAL_X_H;
 
-		cal_y1 = cal_y0 = 0;
-		err = dev->tf->read(dev->dev, REG_0RH_CAL_Y_H, 1, (u8 *)&cal_y0);
+		cal_y1 = 0;
+		cal_y0 = 0;
+		err = dev->tf->read(dev->dev, REG_0RH_CAL_Y_H, 1,
+				    (u8 *)&cal_y0);
 		if (err < 0)
 			return err;
 
-		err = dev->tf->read(dev->dev, REG_1RH_CAL_Y_H, 1, (u8 *)&cal_y1);
+		err = dev->tf->read(dev->dev, REG_1RH_CAL_Y_H, 1,
+				    (u8 *)&cal_y1);
 		if (err < 0)
 			return err;
 		break;
@@ -386,53 +388,52 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_PROCESSED:
-		if (indio_dev->currentmode == INDIO_BUFFER_TRIGGERED) {
+		s16 data;
+		enum hts221_sensor_type type;
+
+		if (indio_dev->currentmode == INDIO_BUFFER_TRIGGERED)
 			return -EBUSY;
-		} else {
-			s16 data;
-			enum hts221_sensor_type type;
 
-			type = (ch->type == IIO_TEMP) ? HTS221_SENSOR_T
-						      : HTS221_SENSOR_H;
-			switch (ch->type) {
-			case IIO_HUMIDITYRELATIVE:
-				type = HTS221_SENSOR_H;
-				break;
-			case IIO_TEMP:
-				type = HTS221_SENSOR_T;
-				break;
-			default:
-				return -EINVAL;
-			}
-
-			mutex_lock(&dev->lock);
-
-			ret = hts221_power_on(dev);
-			if (ret < 0) {
-				mutex_unlock(&dev->lock);
-				return ret;
-			}
-
-			msleep(50);
-			ret = dev->tf->read(dev->dev, ch->address, 2, (u8 *)&data);
-			if (ret < 0) {
-				mutex_unlock(&dev->lock);
-				return ret;
-			}
-
-			ret = hts221_power_off(dev);
-			if (ret < 0) {
-				mutex_unlock(&dev->lock);
-				return ret;
-			}
-
-			*val = hts221_convert(dev->sensors[type].slope,
-					      dev->sensors[type].b_gen,
-					      le16_to_cpu(data), type);
-			ret = IIO_VAL_INT;
-
-			mutex_unlock(&dev->lock);
+		type = (ch->type == IIO_TEMP) ? HTS221_SENSOR_T
+					      : HTS221_SENSOR_H;
+		switch (ch->type) {
+		case IIO_HUMIDITYRELATIVE:
+			type = HTS221_SENSOR_H;
+			break;
+		case IIO_TEMP:
+			type = HTS221_SENSOR_T;
+			break;
+		default:
+			return -EINVAL;
 		}
+
+		mutex_lock(&dev->lock);
+
+		ret = hts221_power_on(dev);
+		if (ret < 0) {
+			mutex_unlock(&dev->lock);
+			return ret;
+		}
+
+		msleep(50);
+		ret = dev->tf->read(dev->dev, ch->address, 2, (u8 *)&data);
+		if (ret < 0) {
+			mutex_unlock(&dev->lock);
+			return ret;
+		}
+
+		ret = hts221_power_off(dev);
+		if (ret < 0) {
+			mutex_unlock(&dev->lock);
+			return ret;
+		}
+
+		*val = hts221_convert(dev->sensors[type].slope,
+				      dev->sensors[type].b_gen,
+				      le16_to_cpu(data), type);
+		ret = IIO_VAL_INT;
+
+		mutex_unlock(&dev->lock);
 		break;
 	case IIO_CHAN_INFO_SCALE: {
 		u8 idx;

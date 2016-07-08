@@ -16,7 +16,7 @@
 #include <linux/iio/iio.h>
 
 #if defined(CONFIG_IIO_HTS221_SPI) || \
-    defined(CONFIG_IIO_HTS221_SPI_MODULE)
+	defined(CONFIG_IIO_HTS221_SPI_MODULE)
 #define HTS221_RX_MAX_LENGTH	500
 #define HTS221_TX_MAX_LENGTH	500
 
@@ -69,7 +69,7 @@ struct hts221_dev {
 
 	const struct hts221_transfer_function *tf;
 #if defined(CONFIG_IIO_HTS221_SPI) || \
-    defined(CONFIG_IIO_HTS221_SPI_MODULE)
+	defined(CONFIG_IIO_HTS221_SPI_MODULE)
 	struct hts221_transfer_buffer tb;
 #endif /* CONFIG_IIO_HTS221_SPI */
 };

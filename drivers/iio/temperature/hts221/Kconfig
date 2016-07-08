@@ -6,7 +6,8 @@ config IIO_HTS221
 	select IIO_HTS221_SPI if (SPI_MASTER)
 	select IIO_TRIGGERED_BUFFER if (IIO_BUFFER)
 	help
-	  Say yes here to build support for STMicroelectronics HTS221 sensor
+	  Say yes here to build support for STMicroelectronics HTS221
+	  temperature-humidity sensor
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called hts221.
