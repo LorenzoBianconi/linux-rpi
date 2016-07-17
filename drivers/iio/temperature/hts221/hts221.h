@@ -61,10 +61,12 @@ enum hts221_sensor_type {
 struct hts221_dev {
 	const char *name;
 	struct device *dev;
-
+	int irq;
+	struct iio_trigger *trig;
 	struct mutex lock;
 
 	u8 odr;
+	s16 buffer[HTS221_SENSOR_MAX];
 	struct hts221_sensor sensors[HTS221_SENSOR_MAX];
 
 	const struct hts221_transfer_function *tf;
@@ -110,7 +112,30 @@ static inline int hts221_convert(int slope, int b_gen, s16 x,
 	return res;
 }
 
+int hts221_config_drdy(struct hts221_dev *dev, bool enable);
+int hts221_push_data(struct iio_dev *indio_dev);
 int hts221_probe(struct iio_dev *indio_dev);
 int hts221_remove(struct iio_dev *indio_dev);
+int hts221_power_on(struct hts221_dev *dev);
+int hts221_power_off(struct hts221_dev *dev);
+#ifdef CONFIG_IIO_BUFFER
+int hts221_allocate_buffer(struct iio_dev *indio_dev);
+void hts221_deallocate_buffer(struct iio_dev *indio_dev);
+int hts221_allocate_trigger(struct iio_dev *indio_dev);
+void hts221_deallocate_trigger(struct iio_dev *indio_dev);
+#else
+static inline int hts221_allocate_buffer(struct iio_dev *indio_dev)
+{
+	return 0;
+}
+
+static inline int hts221_allocate_trigger(struct iio_dev *indio_dev)
+{
+	return 0;
+}
+static inline void hts221_deallocate_trigger(struct iio_dev *indio_dev)
+{
+}
+#endif /* CONFIG_IIO_BUFFER */
 
 #endif /* HTS221_H */

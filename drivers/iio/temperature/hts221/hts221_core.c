@@ -21,6 +21,8 @@
 
 #define REG_CNTRL1_ADDR		0x20
 #define REG_CNTRL2_ADDR		0x21
+#define REG_CNTRL3_ADDR		0x22
+#define REG_STATUS_ADDR		0x27
 
 #define REG_H_RES_ADDR		0x10
 #define REG_T_RES_ADDR		0x10
@@ -30,8 +32,10 @@
 #define H_RES_MASK		0x07
 #define T_RES_MASK		0x38
 
-#define ODR_MASK		0x07
+#define ODR_MASK		0x87
 #define BDU_MASK		0x04
+
+#define DRDY_MASK		0x04
 
 #define ENABLE_SENSOR		0x80
 
@@ -118,6 +122,13 @@ static const struct iio_chan_spec hts221_channels[] = {
 		.channel2 = IIO_NO_MOD,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED) |
 				      BIT(IIO_CHAN_INFO_SCALE),
+		.scan_index = 1,
+		.scan_type = {
+			.sign = 's',
+			.realbits = 16,
+			.storagebits = 16,
+			.endianness = IIO_LE,
+		},
 	},
 	{
 		.type = IIO_TEMP,
@@ -126,6 +137,13 @@ static const struct iio_chan_spec hts221_channels[] = {
 		.channel2 = IIO_NO_MOD,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED) |
 				      BIT(IIO_CHAN_INFO_SCALE),
+		.scan_index = 0,
+		.scan_type = {
+			.sign = 's',
+			.realbits = 16,
+			.storagebits = 16,
+			.endianness = IIO_LE,
+		},
 	},
 };
 
@@ -168,6 +186,68 @@ static int hts221_check_whoami(struct hts221_dev *dev)
 			data, REG_WHOAMI_VAL);
 		return -ENODEV;
 	}
+
+	return 0;
+}
+
+int hts221_config_drdy(struct hts221_dev *dev, bool enable)
+{
+	int err;
+	u8 val = (enable) ? 0x04 : 0;
+	
+	mutex_lock(&dev->lock);
+	err = hts221_write_with_mask(dev, REG_CNTRL3_ADDR, DRDY_MASK, val);
+	mutex_unlock(&dev->lock);
+
+	return err;
+}
+
+int hts221_push_data(struct iio_dev *indio_dev)
+{
+	s16 data;
+	u8 status;
+	int err, idx = 0;
+	struct hts221_dev *dev = iio_priv(indio_dev);
+
+	mutex_lock(&dev->lock);
+
+	err = dev->tf->read(dev->dev, REG_STATUS_ADDR, 1, &status);
+	if (err < 0) {
+		mutex_unlock(&dev->lock);
+		return err;
+	}
+
+	if (status & 0x01) {
+		err = dev->tf->read(dev->dev, REG_T_OUT_L, 2, (u8 *)&data);
+		if (err < 0) {
+			dev_err(dev->dev, "failed to read reg %02x\n",
+				REG_T_OUT_L);
+			mutex_unlock(&dev->lock);
+			return err;
+		}
+		if (test_bit(0, indio_dev->active_scan_mask))
+			dev->buffer[idx++] = hts221_convert(
+					dev->sensors[HTS221_SENSOR_T].slope,
+					dev->sensors[HTS221_SENSOR_T].b_gen,
+					le16_to_cpu(data), HTS221_SENSOR_T);
+	}
+
+	if (status & 0x02) {
+		err = dev->tf->read(dev->dev, REG_H_OUT_L, 2, (u8 *)&data);
+		if (err < 0) {
+			dev_err(dev->dev, "failed to read reg %02x\n",
+				REG_H_OUT_L);
+			mutex_unlock(&dev->lock);
+			return err;
+		}
+		if (test_bit(1, indio_dev->active_scan_mask))
+			dev->buffer[idx++] = hts221_convert(
+					dev->sensors[HTS221_SENSOR_H].slope,
+					dev->sensors[HTS221_SENSOR_H].b_gen,
+					le16_to_cpu(data), HTS221_SENSOR_H);
+	}
+
+	mutex_unlock(&dev->lock);
 
 	return 0;
 }
@@ -262,7 +342,7 @@ hts221_sysfs_set_sampling_frequency(struct device *device,
 	return err < 0 ? err : size;
 }
 
-static int hts221_power_on(struct hts221_dev *dev)
+int hts221_power_on(struct hts221_dev *dev)
 {
 	u8 idx;
 	u16 val;
@@ -283,7 +363,7 @@ static int hts221_power_on(struct hts221_dev *dev)
 	return hts221_update_odr(dev, dev->odr);
 }
 
-static int hts221_power_off(struct hts221_dev *dev)
+int hts221_power_off(struct hts221_dev *dev)
 {
 	int err;
 	u8 data = 0;
@@ -566,6 +646,16 @@ int hts221_probe(struct iio_dev *indio_dev)
 	indio_dev->channels = hts221_channels;
 	indio_dev->num_channels = ARRAY_SIZE(hts221_channels);
 
+	if (dev->irq > 0) {
+		err = hts221_allocate_buffer(indio_dev);
+		if (err < 0)
+			goto power_off;
+
+		err = hts221_allocate_trigger(indio_dev);
+		if (err)
+			goto trigger_error;
+	}
+
 	err = iio_device_register(indio_dev);
 	if (err < 0)
 		goto power_off;
@@ -574,6 +664,11 @@ int hts221_probe(struct iio_dev *indio_dev)
 
 	return 0;
 
+trigger_error:
+	if (dev->irq > 0) {
+		hts221_deallocate_trigger(indio_dev);
+		hts221_deallocate_buffer(indio_dev);
+	}
 power_off:
 	hts221_power_off(dev);
 unlock:
@@ -592,6 +687,10 @@ int hts221_remove(struct iio_dev *indio_dev)
 	if (err < 0)
 		return err;
 
+	if (dev->irq > 0) {
+		hts221_deallocate_trigger(indio_dev);
+		hts221_deallocate_buffer(indio_dev);
+	}
 	iio_device_unregister(indio_dev);
 
 	return 0;

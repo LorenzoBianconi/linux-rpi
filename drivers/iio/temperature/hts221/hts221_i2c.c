@@ -78,6 +78,7 @@ static int hts221_i2c_probe(struct i2c_client *client,
 
 	dev->name = client->name;
 	dev->dev = &client->dev;
+	dev->irq = client->irq;
 	dev->tf = &hts221_transfer_fn;
 
 	err = hts221_probe(indio_dev);

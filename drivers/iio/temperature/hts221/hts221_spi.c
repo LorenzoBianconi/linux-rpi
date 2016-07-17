@@ -103,6 +103,7 @@ static int hts221_spi_probe(struct spi_device *spi)
 
 	dev->name = spi->modalias;
 	dev->dev = &spi->dev;
+	dev->irq = spi->irq;
 	dev->tf = &hts221_transfer_fn;
 
 	err = hts221_probe(indio_dev);
