@@ -387,7 +387,7 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 	struct hts221_dev *dev = iio_priv(indio_dev);
 
 	switch (mask) {
-	case IIO_CHAN_INFO_PROCESSED:
+	case IIO_CHAN_INFO_PROCESSED: {
 		s16 data;
 		enum hts221_sensor_type type;
 
@@ -428,13 +428,16 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 			return ret;
 		}
 
-		*val = hts221_convert(dev->sensors[type].slope,
-				      dev->sensors[type].b_gen,
-				      le16_to_cpu(data), type);
-		ret = IIO_VAL_INT;
+		ret = hts221_convert(dev->sensors[type].slope,
+				     dev->sensors[type].b_gen,
+				     le16_to_cpu(data), type);
+		*val = ret / 1000;
+		*val2 = (ret % 1000) * 1000;
+		ret = IIO_VAL_INT_PLUS_MICRO;
 
 		mutex_unlock(&dev->lock);
 		break;
+	}
 	case IIO_CHAN_INFO_SCALE: {
 		u8 idx;
 		enum hts221_sensor_type type;
