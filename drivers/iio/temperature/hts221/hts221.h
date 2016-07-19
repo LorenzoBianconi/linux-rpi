@@ -87,6 +87,7 @@ static inline int hts221_allocate_trigger(struct iio_dev *indio_dev)
 {
 	return 0;
 }
+
 static inline void hts221_deallocate_trigger(struct iio_dev *indio_dev)
 {
 }
