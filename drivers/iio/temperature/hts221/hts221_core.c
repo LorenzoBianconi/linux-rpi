@@ -121,7 +121,8 @@ static const struct iio_chan_spec hts221_channels[] = {
 		.modified = 0,
 		.channel2 = IIO_NO_MOD,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED) |
-				      BIT(IIO_CHAN_INFO_SCALE),
+				      BIT(IIO_CHAN_INFO_CALIBBIAS) |
+				      BIT(IIO_CHAN_INFO_CALIBSCALE),
 		.scan_index = 1,
 		.scan_type = {
 			.sign = 's',
@@ -136,7 +137,8 @@ static const struct iio_chan_spec hts221_channels[] = {
 		.modified = 0,
 		.channel2 = IIO_NO_MOD,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED) |
-				      BIT(IIO_CHAN_INFO_SCALE),
+				      BIT(IIO_CHAN_INFO_CALIBBIAS) |
+				      BIT(IIO_CHAN_INFO_CALIBSCALE),
 		.scan_index = 0,
 		.scan_type = {
 			.sign = 's',
@@ -295,6 +297,70 @@ static int hts221_update_res(struct hts221_dev *dev,
 	dev->sensors[type].cur_res_idx = i;
 
 	return 0;
+}
+
+static ssize_t
+hts221_sysfs_get_h_avg_val(struct device *device,
+			   struct device_attribute *attr, char *buf)
+{
+	struct hts221_dev *dev = iio_priv(dev_get_drvdata(device));
+	u8 idx = dev->sensors[HTS221_SENSOR_H].cur_res_idx;
+	u16 val = hts221_setting_list[HTS221_SENSOR_H].res.res_avl[idx].res;
+
+	return sprintf(buf, "%d\n", val);
+}
+
+static ssize_t
+hts221_sysfs_set_h_avg_val(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t size)
+{
+	int err;
+	unsigned int val;
+	struct iio_dev *indio_dev = dev_get_drvdata(device);
+	struct hts221_dev *dev = iio_priv(indio_dev);
+
+	err = kstrtoint(buf, 10, &val);
+	if (err < 0)
+		return err;
+
+	mutex_lock(&dev->lock);
+	err = hts221_update_res(dev, HTS221_SENSOR_H, (u16)val);
+	mutex_unlock(&dev->lock);
+
+	return err < 0 ? err : size;
+}
+
+static ssize_t
+hts221_sysfs_get_t_avg_val(struct device *device,
+			   struct device_attribute *attr, char *buf)
+{
+	struct hts221_dev *dev = iio_priv(dev_get_drvdata(device));
+	u8 idx = dev->sensors[HTS221_SENSOR_T].cur_res_idx;
+	u16 val = hts221_setting_list[HTS221_SENSOR_T].res.res_avl[idx].res;
+
+	return sprintf(buf, "%d\n", val);
+}
+
+static ssize_t
+hts221_sysfs_set_t_avg_val(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t size)
+{
+	int err;
+	unsigned int val;
+	struct iio_dev *indio_dev = dev_get_drvdata(device);
+	struct hts221_dev *dev = iio_priv(indio_dev);
+
+	err = kstrtoint(buf, 10, &val);
+	if (err < 0)
+		return err;
+
+	mutex_lock(&dev->lock);
+	err = hts221_update_res(dev, HTS221_SENSOR_T, (u16)val);
+	mutex_unlock(&dev->lock);
+
+	return err < 0 ? err : size;
 }
 
 static ssize_t hts221_sysfs_sampling_freq(struct device *dev,
@@ -518,27 +584,58 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&dev->lock);
 		break;
 	}
-	case IIO_CHAN_INFO_SCALE: {
-		u8 idx;
-		enum hts221_sensor_type type;
+	case IIO_CHAN_INFO_CALIBSCALE: {
+		s64 tmp;
+		s32 rem, div, data;
 
-		*val2 = 0;
 		switch (ch->type) {
-		case IIO_HUMIDITYRELATIVE:
-			type = HTS221_SENSOR_H;
-			idx = dev->sensors[HTS221_SENSOR_H].cur_res_idx;
+		case IIO_HUMIDITYRELATIVE: {
+			data = dev->sensors[HTS221_SENSOR_H].slope;
+			div = (1 << 4);
 			break;
-		case IIO_TEMP:
-			type = HTS221_SENSOR_T;
-			idx = dev->sensors[HTS221_SENSOR_T].cur_res_idx;
+		}
+		case IIO_TEMP: {
+			data = dev->sensors[HTS221_SENSOR_T].slope;
+			div = (1 << 6);
 			break;
+		}
 		default:
 			return -EINVAL;
 		}
 
-		*val = hts221_setting_list[type].res.res_avl[idx].res;
-		ret = IIO_VAL_INT;
+		tmp = div_s64(data * 1000000000LL, div);
+		tmp = div_s64_rem(tmp, 1000000000LL, &rem);
 
+		*val = tmp;
+		*val2 = abs(rem);
+		ret = IIO_VAL_INT_PLUS_NANO;
+		break;
+	}
+	case IIO_CHAN_INFO_CALIBBIAS: {
+		s64 tmp;
+		s32 rem, div, data;
+
+		switch (ch->type) {
+		case IIO_HUMIDITYRELATIVE: {
+			data = dev->sensors[HTS221_SENSOR_H].b_gen;
+			div = (1 << 4);
+			break;
+		}
+		case IIO_TEMP: {
+			data = dev->sensors[HTS221_SENSOR_T].b_gen;
+			div = (1 << 6);
+			break;
+		}
+		default:
+			return -EINVAL;
+		}
+
+		tmp = div_s64(data * 1000000000LL, div);
+		tmp = div_s64_rem(tmp, 1000000000LL, &rem);
+
+		*val = tmp;
+		*val2 = abs(rem);
+		ret = IIO_VAL_INT_PLUS_NANO;
 		break;
 	}
 	default:
@@ -549,44 +646,16 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 	return ret;
 }
 
-static int hts221_write_raw(struct iio_dev *indio_dev,
-			    struct iio_chan_spec const *ch,
-			    int val, int val2, long mask)
-{
-	int err;
-
-	switch (mask) {
-	case IIO_CHAN_INFO_SCALE: {
-		enum hts221_sensor_type type;
-		struct hts221_dev *dev = iio_priv(indio_dev);
-
-		if (val2)
-			return -EINVAL;
-
-		switch (ch->type) {
-		case IIO_HUMIDITYRELATIVE:
-			type = HTS221_SENSOR_H;
-			break;
-		case IIO_TEMP:
-			type = HTS221_SENSOR_T;
-			break;
-		default:
-			return -EINVAL;
-		}
-
-		mutex_lock(&dev->lock);
-		err = hts221_update_res(dev, type, val);
-		mutex_unlock(&dev->lock);
-
-		break;
-	}
-	default:
-		err = -EINVAL;
-		break;
-	}
-
-	return err;
-}
+static IIO_CONST_ATTR(humidityrelative_avg_sample_available,
+		      "4 8 16 32 64 128 256 512");
+static IIO_DEVICE_ATTR(humidityrelative_avg_sample, S_IWUSR | S_IRUGO,
+		       hts221_sysfs_get_h_avg_val,
+		       hts221_sysfs_set_h_avg_val, 0);
+static IIO_CONST_ATTR(temp_avg_sample_available,
+		      "2 4 8 16 32 64 128 256");
+static IIO_DEVICE_ATTR(temp_avg_sample, S_IWUSR | S_IRUGO,
+		       hts221_sysfs_get_t_avg_val,
+		       hts221_sysfs_set_t_avg_val, 0);
 
 static IIO_DEV_ATTR_SAMP_FREQ_AVAIL(hts221_sysfs_sampling_freq);
 static IIO_DEV_ATTR_SAMP_FREQ(S_IWUSR | S_IRUGO,
@@ -596,6 +665,10 @@ static IIO_DEV_ATTR_SAMP_FREQ(S_IWUSR | S_IRUGO,
 static struct attribute *hts221_attributes[] = {
 	&iio_dev_attr_sampling_frequency_available.dev_attr.attr,
 	&iio_dev_attr_sampling_frequency.dev_attr.attr,
+	&iio_const_attr_humidityrelative_avg_sample_available.dev_attr.attr,
+	&iio_dev_attr_humidityrelative_avg_sample.dev_attr.attr,
+	&iio_const_attr_temp_avg_sample_available.dev_attr.attr,
+	&iio_dev_attr_temp_avg_sample.dev_attr.attr,
 	NULL,
 };
 
@@ -607,7 +680,6 @@ static const struct iio_info hts221_info = {
 	.driver_module = THIS_MODULE,
 	.attrs = &hts221_attribute_group,
 	.read_raw = &hts221_read_raw,
-	.write_raw = &hts221_write_raw,
 };
 
 int hts221_probe(struct iio_dev *indio_dev)
