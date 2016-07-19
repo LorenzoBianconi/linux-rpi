@@ -207,9 +207,9 @@ int hts221_config_drdy(struct hts221_dev *dev, bool enable)
 
 int hts221_push_data(struct iio_dev *indio_dev)
 {
+	int err;
 	s16 data;
 	u8 status;
-	int err, idx = 0;
 	struct hts221_dev *dev = iio_priv(indio_dev);
 
 	mutex_lock(&dev->lock);
@@ -229,10 +229,7 @@ int hts221_push_data(struct iio_dev *indio_dev)
 			return err;
 		}
 		if (test_bit(0, indio_dev->active_scan_mask))
-			dev->buffer[idx++] = hts221_convert(
-					dev->sensors[HTS221_SENSOR_T].slope,
-					dev->sensors[HTS221_SENSOR_T].b_gen,
-					le16_to_cpu(data), HTS221_SENSOR_T);
+			dev->buffer[HTS221_SENSOR_T] = data;
 	}
 
 	if (status & 0x02) {
@@ -244,10 +241,7 @@ int hts221_push_data(struct iio_dev *indio_dev)
 			return err;
 		}
 		if (test_bit(1, indio_dev->active_scan_mask))
-			dev->buffer[idx++] = hts221_convert(
-					dev->sensors[HTS221_SENSOR_H].slope,
-					dev->sensors[HTS221_SENSOR_H].b_gen,
-					le16_to_cpu(data), HTS221_SENSOR_H);
+			dev->buffer[HTS221_SENSOR_H] = data;
 	}
 
 	mutex_unlock(&dev->lock);
