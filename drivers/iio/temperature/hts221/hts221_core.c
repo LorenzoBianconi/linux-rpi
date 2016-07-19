@@ -25,13 +25,13 @@
 #define REG_CNTRL3_ADDR		0x22
 #define REG_STATUS_ADDR		0x27
 
-#define REG_H_RES_ADDR		0x10
-#define REG_T_RES_ADDR		0x10
+#define REG_H_AVG_ADDR		0x10
+#define REG_T_AVG_ADDR		0x10
 #define REG_H_OUT_L		0x28
 #define REG_T_OUT_L		0x2a
 
-#define H_RES_MASK		0x07
-#define T_RES_MASK		0x38
+#define H_AVG_MASK		0x07
+#define T_AVG_MASK		0x38
 
 #define ODR_MASK		0x87
 #define BDU_MASK		0x04
@@ -40,23 +40,23 @@
 
 #define ENABLE_SENSOR		0x80
 
-#define H_RES_4			0x00 /* 0.4 %RH */
-#define H_RES_8			0x01 /* 0.3 %RH */
-#define H_RES_16		0x02 /* 0.2 %RH */
-#define H_RES_32		0x03 /* 0.15 %RH */
-#define H_RES_64		0x04 /* 0.1 %RH */
-#define H_RES_128		0x05 /* 0.07 %RH */
-#define H_RES_256		0x06 /* 0.05 %RH */
-#define H_RES_512		0x07 /* 0.03 %RH */
+#define H_AVG_4			0x00 /* 0.4 %RH */
+#define H_AVG_8			0x01 /* 0.3 %RH */
+#define H_AVG_16		0x02 /* 0.2 %RH */
+#define H_AVG_32		0x03 /* 0.15 %RH */
+#define H_AVG_64		0x04 /* 0.1 %RH */
+#define H_AVG_128		0x05 /* 0.07 %RH */
+#define H_AVG_256		0x06 /* 0.05 %RH */
+#define H_AVG_512		0x07 /* 0.03 %RH */
 
-#define T_RES_2			0x00 /* 0.08 degC */
-#define T_RES_4			0x08 /* 0.05 degC */
-#define T_RES_8			0x10 /* 0.04 degC */
-#define T_RES_16		0x18 /* 0.03 degC */
-#define T_RES_32		0x20 /* 0.02 degC */
-#define T_RES_64		0x28 /* 0.015 degC */
-#define T_RES_128		0x30 /* 0.01 degC */
-#define T_RES_256		0x38 /* 0.007 degC */
+#define T_AVG_2			0x00 /* 0.08 degC */
+#define T_AVG_4			0x08 /* 0.05 degC */
+#define T_AVG_8			0x10 /* 0.04 degC */
+#define T_AVG_16		0x18 /* 0.03 degC */
+#define T_AVG_32		0x20 /* 0.02 degC */
+#define T_AVG_64		0x28 /* 0.015 degC */
+#define T_AVG_128		0x30 /* 0.01 degC */
+#define T_AVG_256		0x38 /* 0.007 degC */
 
 /* caldata registers */
 #define REG_0RH_CAL_X_H		0x36
@@ -74,43 +74,45 @@ struct hts221_odr {
 	u8 val;
 };
 
+struct hts221_avg {
+	u8 addr;
+	u8 mask;
+	struct hts221_avg_avl avg_avl[HTS221_AVG_DEPTH];
+};
+
 static const struct hts221_odr hts221_odr_table[] = {
 	{ 1, 0x01 },	/* 1Hz */
 	{ 7, 0x02 },	/* 7Hz */
 	{ 13, 0x03 },	/* 12.5 HZ */
 };
 
-static const struct hts221_settings hts221_setting_list[] = {
+static const struct hts221_avg hts221_avg_list[] = {
 	{
-		.res =  {
-			.addr = REG_H_RES_ADDR,
-			.mask = H_RES_MASK,
-			.res_avl = {
-				{ 4, H_RES_4 },
-				{ 8, H_RES_8 },
-				{ 16, H_RES_16 },
-				{ 32, H_RES_32 },
-				{ 64, H_RES_64 },
-				{ 128, H_RES_128 },
-				{ 256, H_RES_256 },
-				{ 512, H_RES_512 },
-			},
+		.addr = REG_H_AVG_ADDR,
+		.mask = H_AVG_MASK,
+		.avg_avl = {
+			{ 4, H_AVG_4 },
+			{ 8, H_AVG_8 },
+			{ 16, H_AVG_16 },
+			{ 32, H_AVG_32 },
+			{ 64, H_AVG_64 },
+			{ 128, H_AVG_128 },
+			{ 256, H_AVG_256 },
+			{ 512, H_AVG_512 },
 		},
 	},
 	{
-		.res =  {
-			.addr = REG_T_RES_ADDR,
-			.mask = T_RES_MASK,
-			.res_avl = {
-				{ 2, T_RES_2 },
-				{ 4, T_RES_4 },
-				{ 8, T_RES_8 },
-				{ 16, T_RES_16 },
-				{ 32, T_RES_32 },
-				{ 64, T_RES_64 },
-				{ 128, T_RES_128 },
-				{ 256, T_RES_256 },
-			},
+		.addr = REG_T_AVG_ADDR,
+		.mask = T_AVG_MASK,
+		.avg_avl = {
+			{ 2, T_AVG_2 },
+			{ 4, T_AVG_4 },
+			{ 8, T_AVG_8 },
+			{ 16, T_AVG_16 },
+			{ 32, T_AVG_32 },
+			{ 64, T_AVG_64 },
+			{ 128, T_AVG_128 },
+			{ 256, T_AVG_256 },
 		},
 	},
 };
@@ -271,25 +273,25 @@ static int hts221_update_odr(struct hts221_dev *dev, u8 odr)
 	return 0;
 }
 
-static int hts221_update_res(struct hts221_dev *dev,
+static int hts221_update_avg(struct hts221_dev *dev,
 			     enum hts221_sensor_type type, u16 val)
 {
 	int i, err;
-	const struct hts221_settings *setting = &hts221_setting_list[type];
+	const struct hts221_avg *avg = &hts221_avg_list[type];
 
-	for (i = 0; i < HTS221_RES_DEPTH; i++)
-		if (hts221_setting_list[type].res.res_avl[i].res == val)
+	for (i = 0; i < HTS221_AVG_DEPTH; i++)
+		if (hts221_avg_list[type].avg_avl[i].avg == val)
 			break;
 
-	if (i == HTS221_RES_DEPTH)
+	if (i == HTS221_AVG_DEPTH)
 		return -EINVAL;
 
-	err = hts221_write_with_mask(dev, setting->res.addr, setting->res.mask,
-				     setting->res.res_avl[i].val);
+	err = hts221_write_with_mask(dev, avg->addr, avg->mask,
+				     avg->avg_avl[i].val);
 	if (err < 0)
 		return err;
 
-	dev->sensors[type].cur_res_idx = i;
+	dev->sensors[type].cur_avg_idx = i;
 
 	return 0;
 }
@@ -299,8 +301,8 @@ hts221_sysfs_get_h_avg_val(struct device *device,
 			   struct device_attribute *attr, char *buf)
 {
 	struct hts221_dev *dev = iio_priv(dev_get_drvdata(device));
-	u8 idx = dev->sensors[HTS221_SENSOR_H].cur_res_idx;
-	u16 val = hts221_setting_list[HTS221_SENSOR_H].res.res_avl[idx].res;
+	u8 idx = dev->sensors[HTS221_SENSOR_H].cur_avg_idx;
+	u16 val = hts221_avg_list[HTS221_SENSOR_H].avg_avl[idx].avg;
 
 	return sprintf(buf, "%d\n", val);
 }
@@ -320,7 +322,7 @@ hts221_sysfs_set_h_avg_val(struct device *device,
 		return err;
 
 	mutex_lock(&dev->lock);
-	err = hts221_update_res(dev, HTS221_SENSOR_H, (u16)val);
+	err = hts221_update_avg(dev, HTS221_SENSOR_H, (u16)val);
 	mutex_unlock(&dev->lock);
 
 	return err < 0 ? err : size;
@@ -331,8 +333,8 @@ hts221_sysfs_get_t_avg_val(struct device *device,
 			   struct device_attribute *attr, char *buf)
 {
 	struct hts221_dev *dev = iio_priv(dev_get_drvdata(device));
-	u8 idx = dev->sensors[HTS221_SENSOR_T].cur_res_idx;
-	u16 val = hts221_setting_list[HTS221_SENSOR_T].res.res_avl[idx].res;
+	u8 idx = dev->sensors[HTS221_SENSOR_T].cur_avg_idx;
+	u16 val = hts221_avg_list[HTS221_SENSOR_T].avg_avl[idx].avg;
 
 	return sprintf(buf, "%d\n", val);
 }
@@ -352,7 +354,7 @@ hts221_sysfs_set_t_avg_val(struct device *device,
 		return err;
 
 	mutex_lock(&dev->lock);
-	err = hts221_update_res(dev, HTS221_SENSOR_T, (u16)val);
+	err = hts221_update_avg(dev, HTS221_SENSOR_T, (u16)val);
 	mutex_unlock(&dev->lock);
 
 	return err < 0 ? err : size;
@@ -409,15 +411,15 @@ int hts221_power_on(struct hts221_dev *dev)
 	u16 val;
 	int err;
 
-	idx = dev->sensors[HTS221_SENSOR_H].cur_res_idx;
-	val = hts221_setting_list[HTS221_SENSOR_H].res.res_avl[idx].res;
-	err = hts221_update_res(dev, HTS221_SENSOR_H, val);
+	idx = dev->sensors[HTS221_SENSOR_H].cur_avg_idx;
+	val = hts221_avg_list[HTS221_SENSOR_H].avg_avl[idx].avg;
+	err = hts221_update_avg(dev, HTS221_SENSOR_H, val);
 	if (err < 0)
 		return err;
 
-	idx = dev->sensors[HTS221_SENSOR_T].cur_res_idx;
-	val = hts221_setting_list[HTS221_SENSOR_T].res.res_avl[idx].res;
-	err = hts221_update_res(dev, HTS221_SENSOR_T, val);
+	idx = dev->sensors[HTS221_SENSOR_T].cur_avg_idx;
+	val = hts221_avg_list[HTS221_SENSOR_T].avg_avl[idx].avg;
+	err = hts221_update_avg(dev, HTS221_SENSOR_T, val);
 	if (err < 0)
 		return err;
 
@@ -690,11 +692,11 @@ int hts221_probe(struct iio_dev *indio_dev)
 	if (err < 0)
 		goto unlock;
 
-	err = hts221_update_res(dev, HTS221_SENSOR_H, 4);
+	err = hts221_update_avg(dev, HTS221_SENSOR_H, 4);
 	if (err < 0)
 		goto power_off;
 
-	err = hts221_update_res(dev, HTS221_SENSOR_T, 2);
+	err = hts221_update_avg(dev, HTS221_SENSOR_T, 2);
 	if (err < 0)
 		goto power_off;
 
