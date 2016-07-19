@@ -107,6 +107,7 @@ static int hts221_buffer_preenable(struct iio_dev *indio_dev)
 static int hts221_buffer_postdisable(struct iio_dev *indio_dev)
 {
 	struct hts221_dev *dev = iio_priv(indio_dev);
+
 	return hts221_power_off(dev);
 }
 
@@ -126,7 +127,7 @@ static irqreturn_t hts221_trigger_handler(int irq, void *p)
 	if (!hts221_push_data(indio_dev))
 		iio_push_to_buffers_with_timestamp(indio_dev, dev->buffer,
 						   pf->timestamp);
-		
+
 	iio_trigger_notify_done(dev->trig);
 
 	return IRQ_HANDLED;

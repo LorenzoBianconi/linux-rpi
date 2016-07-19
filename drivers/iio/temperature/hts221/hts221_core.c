@@ -199,7 +199,7 @@ int hts221_config_drdy(struct hts221_dev *dev, bool enable)
 {
 	int err;
 	u8 val = (enable) ? 0x04 : 0;
-	
+
 	mutex_lock(&dev->lock);
 	err = hts221_write_with_mask(dev, REG_CNTRL3_ADDR, DRDY_MASK, val);
 	mutex_unlock(&dev->lock);
