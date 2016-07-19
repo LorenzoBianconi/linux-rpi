@@ -13,6 +13,7 @@
 #include <linux/device.h>
 #include <linux/iio/sysfs.h>
 #include <linux/delay.h>
+#include <asm/unaligned.h>
 
 #include "hts221.h"
 
@@ -120,7 +121,7 @@ static const struct iio_chan_spec hts221_channels[] = {
 		.address = REG_H_OUT_L,
 		.modified = 0,
 		.channel2 = IIO_NO_MOD,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED) |
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 				      BIT(IIO_CHAN_INFO_CALIBBIAS) |
 				      BIT(IIO_CHAN_INFO_CALIBSCALE),
 		.scan_index = 1,
@@ -136,7 +137,7 @@ static const struct iio_chan_spec hts221_channels[] = {
 		.address = REG_T_OUT_L,
 		.modified = 0,
 		.channel2 = IIO_NO_MOD,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED) |
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 				      BIT(IIO_CHAN_INFO_CALIBBIAS) |
 				      BIT(IIO_CHAN_INFO_CALIBSCALE),
 		.scan_index = 0,
@@ -533,8 +534,8 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 	struct hts221_dev *dev = iio_priv(indio_dev);
 
 	switch (mask) {
-	case IIO_CHAN_INFO_PROCESSED: {
-		s16 data;
+	case IIO_CHAN_INFO_RAW: {
+		u8 data[2];
 		enum hts221_sensor_type type;
 
 		if (indio_dev->currentmode == INDIO_BUFFER_TRIGGERED)
@@ -562,7 +563,7 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 		}
 
 		msleep(50);
-		ret = dev->tf->read(dev->dev, ch->address, 2, (u8 *)&data);
+		ret = dev->tf->read(dev->dev, ch->address, 2, data);
 		if (ret < 0) {
 			mutex_unlock(&dev->lock);
 			return ret;
@@ -574,12 +575,8 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 			return ret;
 		}
 
-		ret = hts221_convert(dev->sensors[type].slope,
-				     dev->sensors[type].b_gen,
-				     le16_to_cpu(data), type);
-		*val = ret / 1000;
-		*val2 = (ret % 1000) * 1000;
-		ret = IIO_VAL_INT_PLUS_MICRO;
+		*val = (s16)get_unaligned_le16(data);
+		ret = IIO_VAL_INT;
 
 		mutex_unlock(&dev->lock);
 		break;
