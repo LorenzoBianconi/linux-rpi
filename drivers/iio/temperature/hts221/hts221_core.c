@@ -124,9 +124,9 @@ static const struct iio_chan_spec hts221_channels[] = {
 		.modified = 0,
 		.channel2 = IIO_NO_MOD,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_CALIBBIAS) |
-				      BIT(IIO_CHAN_INFO_CALIBSCALE),
-		.scan_index = 1,
+				      BIT(IIO_CHAN_INFO_OFFSET) |
+				      BIT(IIO_CHAN_INFO_SCALE),
+		.scan_index = 0,
 		.scan_type = {
 			.sign = 's',
 			.realbits = 16,
@@ -140,9 +140,9 @@ static const struct iio_chan_spec hts221_channels[] = {
 		.modified = 0,
 		.channel2 = IIO_NO_MOD,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_CALIBBIAS) |
-				      BIT(IIO_CHAN_INFO_CALIBSCALE),
-		.scan_index = 0,
+				      BIT(IIO_CHAN_INFO_OFFSET) |
+				      BIT(IIO_CHAN_INFO_SCALE),
+		.scan_index = 1,
 		.scan_type = {
 			.sign = 's',
 			.realbits = 16,
@@ -577,19 +577,19 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&dev->lock);
 		break;
 	}
-	case IIO_CHAN_INFO_CALIBSCALE: {
+	case IIO_CHAN_INFO_SCALE: {
 		s64 tmp;
 		s32 rem, div, data;
 
 		switch (ch->type) {
 		case IIO_HUMIDITYRELATIVE: {
 			data = dev->sensors[HTS221_SENSOR_H].slope;
-			div = (1 << 4);
+			div = (1 << 4) * 1000;
 			break;
 		}
 		case IIO_TEMP: {
 			data = dev->sensors[HTS221_SENSOR_T].slope;
-			div = (1 << 6);
+			div = (1 << 6) * 1000;
 			break;
 		}
 		default:
@@ -600,23 +600,23 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 		tmp = div_s64_rem(tmp, 1000000000LL, &rem);
 
 		*val = tmp;
-		*val2 = abs(rem);
+		*val2 = rem;
 		ret = IIO_VAL_INT_PLUS_NANO;
 		break;
 	}
-	case IIO_CHAN_INFO_CALIBBIAS: {
+	case IIO_CHAN_INFO_OFFSET: {
 		s64 tmp;
 		s32 rem, div, data;
 
 		switch (ch->type) {
 		case IIO_HUMIDITYRELATIVE: {
 			data = dev->sensors[HTS221_SENSOR_H].b_gen;
-			div = (1 << 4);
+			div = dev->sensors[HTS221_SENSOR_H].slope;
 			break;
 		}
 		case IIO_TEMP: {
 			data = dev->sensors[HTS221_SENSOR_T].b_gen;
-			div = (1 << 6);
+			div = dev->sensors[HTS221_SENSOR_T].slope;
 			break;
 		}
 		default:
