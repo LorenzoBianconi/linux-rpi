@@ -11,6 +11,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/i2c.h>
+#include <linux/slab.h>
 #include "hts221.h"
 
 #define I2C_AUTO_INCREMENT	0x80
@@ -63,40 +64,38 @@ static int hts221_i2c_probe(struct i2c_client *client,
 			    const struct i2c_device_id *id)
 {
 	int err;
-	struct iio_dev *indio_dev;
 	struct hts221_dev *dev;
 
-	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*dev));
-	if (!indio_dev)
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	if (!dev)
 		return -ENOMEM;
 
-	dev = iio_priv(indio_dev);
-
-	i2c_set_clientdata(client, indio_dev);
-	indio_dev->dev.parent = &client->dev;
-	indio_dev->name = client->name;
-
+	i2c_set_clientdata(client, dev);
 	dev->name = client->name;
 	dev->dev = &client->dev;
 	dev->irq = client->irq;
 	dev->tf = &hts221_transfer_fn;
 
-	err = hts221_probe(indio_dev);
-	if (err < 0)
+	err = hts221_probe(dev);
+	if (err < 0) {
+		kfree(dev);
 		return err;
+	}
 
 	dev_info(&client->dev, "hts221 i2c sensor probed\n");
+
 	return 0;
 }
 
 static int hts221_i2c_remove(struct i2c_client *client)
 {
 	int err;
-	struct iio_dev *indio_dev = i2c_get_clientdata(client);
+	struct hts221_dev *dev = i2c_get_clientdata(client);
 
-	err = hts221_remove(indio_dev);
+	err = hts221_remove(dev);
 	if (err < 0)
 		return err;
+
 	dev_info(&client->dev, "hts221 i2c sensor removed\n");
 
 	return 0;

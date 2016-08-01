@@ -10,21 +10,25 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/interrupt.h>
+#include <linux/irqreturn.h>
+
+#include <linux/iio/iio.h>
 #include <linux/iio/trigger.h>
 #include <linux/interrupt.h>
-#include <linux/iio/buffer.h>
+#include <linux/iio/events.h>
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
-#include <linux/irqreturn.h>
+#include <linux/iio/buffer.h>
 
 #include "hts221.h"
 
 int hts221_trig_set_state(struct iio_trigger *trig, bool state)
 {
 	struct iio_dev *indio_dev = iio_trigger_get_drvdata(trig);
-	struct hts221_dev *dev = iio_priv(indio_dev);
+	struct hts221_sensor *sensor = iio_priv(indio_dev);
 
-	return hts221_config_drdy(dev, state);
+	return hts221_config_drdy(sensor->dev, state);
 }
 
 static const struct iio_trigger_ops hts221_trigger_ops = {
@@ -32,83 +36,102 @@ static const struct iio_trigger_ops hts221_trigger_ops = {
 	.set_trigger_state = &hts221_trig_set_state,
 };
 
-static irqreturn_t hts221_data_rdy_trig_poll(int irq, void *private)
+static irqreturn_t hts221_trigger_handler_bh(int irq, void *private)
 {
 	struct hts221_dev *dev = (struct hts221_dev *)private;
 
-	iio_trigger_poll(dev->trig);
-	return IRQ_WAKE_THREAD;
-}
+	if (!hts221_parse_data(dev)) {
+		int i;
 
-static irqreturn_t hts221_event_handler(int irq, void *private)
-{
+		for (i = 0; i < HTS221_SENSOR_MAX; i++) {
+			struct iio_dev *iio_dev = dev->iio_devs[i];
+			struct hts221_sensor *sensor = iio_priv(iio_dev);
+
+			if (iio_dev->active_scan_mask &&
+			    test_bit(0, iio_dev->active_scan_mask))
+				iio_trigger_poll(sensor->trig);
+		}
+	}
+
 	return IRQ_HANDLED;
 }
 
-int hts221_allocate_trigger(struct iio_dev *indio_dev)
+int hts221_allocate_triggers(struct hts221_dev *dev)
 {
-	int err;
-	struct hts221_dev *dev = iio_priv(indio_dev);
+	int i, err, count = 0;
+	struct hts221_sensor *sensor;
 
-	dev->trig = devm_iio_trigger_alloc(dev->dev, "%s-trigger",
-					   indio_dev->name,
-					   indio_dev->id);
-	if (!dev->trig)
-		return -ENOMEM;
-
-	err = devm_request_threaded_irq(dev->dev, dev->irq,
-					hts221_data_rdy_trig_poll,
-					hts221_event_handler,
-					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-					dev->trig->name, dev);
+	err = devm_request_threaded_irq(dev->dev, dev->irq, NULL,
+					hts221_trigger_handler_bh,
+					IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+					dev->name, dev);
 	if (err) {
 		dev_err(dev->dev, "failed to request trigger irq %d\n",
 			dev->irq);
-		goto request_irq_error;
+		return err;
 	}
 
-	iio_trigger_set_drvdata(dev->trig, indio_dev);
-	dev->trig->ops = &hts221_trigger_ops;
-	dev->trig->dev.parent = dev->dev;
+	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
+		sensor = iio_priv(dev->iio_devs[i]);
+		sensor->trig = iio_trigger_alloc("%s-trigger",
+						 dev->iio_devs[i]->name);
+		if (!sensor->trig) {
+			err = -ENOMEM;
+			goto iio_trigger_error;
+		}
 
-	err = iio_trigger_register(dev->trig);
-	if (err < 0) {
-		dev_err(dev->dev, "failed to register iio trigger\n");
-		goto iio_trigger_register_error;
+		iio_trigger_set_drvdata(sensor->trig, dev->iio_devs[i]);
+		sensor->trig->ops = &hts221_trigger_ops;
+		sensor->trig->dev.parent = dev->dev;
+
+		err = iio_trigger_register(sensor->trig);
+		if (err < 0) {
+			dev_err(dev->dev, "failed to register iio trigger\n");
+			goto iio_trigger_error;
+		}
+		dev->iio_devs[i]->trig = iio_trigger_get(sensor->trig);
+		count++;
 	}
-	indio_dev->trig = iio_trigger_get(dev->trig);
 
 	return 0;
 
-iio_trigger_register_error:
-	devm_free_irq(dev->dev, dev->irq, dev->trig);
-request_irq_error:
-	devm_iio_trigger_free(dev->dev, dev->trig);
+iio_trigger_error:
+	for (i = count - 1; i >= 0; i--) {
+		sensor = iio_priv(dev->iio_devs[i]);
+		iio_trigger_unregister(sensor->trig);
+	}
+	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
+		sensor = iio_priv(dev->iio_devs[i]);
+		if (sensor->trig)
+			iio_trigger_free(sensor->trig);
+	}
+	devm_free_irq(dev->dev, dev->irq, dev);
 
 	return err;
 }
 
-void hts221_deallocate_trigger(struct iio_dev *indio_dev)
+void hts221_deallocate_triggers(struct hts221_dev *dev)
 {
-	struct hts221_dev *dev = iio_priv(indio_dev);
+	int i;
+	struct hts221_sensor *sensor;
 
-	iio_trigger_unregister(dev->trig);
-	devm_free_irq(dev->dev, dev->irq, dev->trig);
-	devm_iio_trigger_free(dev->dev, dev->trig);
+	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
+		sensor = iio_priv(dev->iio_devs[i]);
+		iio_trigger_unregister(sensor->trig);
+		iio_trigger_free(sensor->trig);
+	}
+
+	devm_free_irq(dev->dev, dev->irq, dev);
 }
 
 static int hts221_buffer_preenable(struct iio_dev *indio_dev)
 {
-	struct hts221_dev *dev = iio_priv(indio_dev);
-
-	return hts221_power_on(dev);
+	return hts221_sensor_power_on(iio_priv(indio_dev));
 }
 
 static int hts221_buffer_postdisable(struct iio_dev *indio_dev)
 {
-	struct hts221_dev *dev = iio_priv(indio_dev);
-
-	return hts221_power_off(dev);
+	return hts221_sensor_power_off(iio_priv(indio_dev));
 }
 
 static const struct iio_buffer_setup_ops hts221_buffer_ops = {
@@ -118,31 +141,48 @@ static const struct iio_buffer_setup_ops hts221_buffer_ops = {
 	.postdisable = hts221_buffer_postdisable,
 };
 
-static irqreturn_t hts221_trigger_handler(int irq, void *p)
+static irqreturn_t hts221_buffer_handler_bh(int irq, void *p)
 {
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
-	struct hts221_dev *dev = iio_priv(indio_dev);
+	struct hts221_sensor *sensor = iio_priv(indio_dev);
 
-	if (!hts221_push_data(indio_dev))
-		iio_push_to_buffers_with_timestamp(indio_dev, dev->buffer,
-						   pf->timestamp);
-
-	iio_trigger_notify_done(dev->trig);
+	iio_push_to_buffers_with_timestamp(indio_dev, sensor->buffer,
+					   pf->timestamp);
+	iio_trigger_notify_done(sensor->trig);
 
 	return IRQ_HANDLED;
 }
 
-int hts221_allocate_buffer(struct iio_dev *indio_dev)
+int hts221_allocate_buffers(struct hts221_dev *dev)
 {
-	return iio_triggered_buffer_setup(indio_dev, iio_pollfunc_store_time,
-					  hts221_trigger_handler,
-					  &hts221_buffer_ops);
+	int i, err, count = 0;
+
+	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
+		err = iio_triggered_buffer_setup(dev->iio_devs[i],
+						 iio_pollfunc_store_time,
+						 hts221_buffer_handler_bh,
+						 &hts221_buffer_ops);
+		if (err < 0)
+			goto iio_buffer_error;
+		count++;
+	}
+
+	return 0;
+
+iio_buffer_error:
+	for (i = count - 1; i >= 0; i--)
+		iio_triggered_buffer_cleanup(dev->iio_devs[i]);
+
+	return err;
 }
 
-void hts221_deallocate_buffer(struct iio_dev *indio_dev)
+void hts221_deallocate_buffers(struct hts221_dev *dev)
 {
-	iio_triggered_buffer_cleanup(indio_dev);
+	int i;
+
+	for (i = 0; i < HTS221_SENSOR_MAX; i++)
+		iio_triggered_buffer_cleanup(dev->iio_devs[i]);
 }
 
 MODULE_AUTHOR("Lorenzo Bianconi <lorenzo.bianconi@st.com>");

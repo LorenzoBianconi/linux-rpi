@@ -37,27 +37,32 @@ struct hts221_avg_avl {
 	u8 val;
 };
 
-struct hts221_sensor {
-	u8 cur_avg_idx;
-	int slope, b_gen;
-};
-
 enum hts221_sensor_type {
 	HTS221_SENSOR_H,
 	HTS221_SENSOR_T,
 	HTS221_SENSOR_MAX,
 };
 
+#define IIO_BUFFER_DEPTH	16
+struct hts221_sensor {
+	bool enabled;
+	u8 odr, cur_avg_idx;
+	int slope, b_gen;
+	enum hts221_sensor_type type;
+
+	struct iio_trigger *trig;
+	u8 buffer[IIO_BUFFER_DEPTH];
+
+	struct hts221_dev *dev;
+};
+
 struct hts221_dev {
 	const char *name;
 	struct device *dev;
 	int irq;
-	struct iio_trigger *trig;
 	struct mutex lock;
 
-	u8 odr;
-	s16 buffer[HTS221_SENSOR_MAX];
-	struct hts221_sensor sensors[HTS221_SENSOR_MAX];
+	struct iio_dev *iio_devs[HTS221_SENSOR_MAX];
 
 	const struct hts221_transfer_function *tf;
 #if defined(CONFIG_IIO_HTS221_SPI) || \
@@ -66,29 +71,42 @@ struct hts221_dev {
 #endif /* CONFIG_IIO_HTS221_SPI */
 };
 
+static inline s64 hts221_get_time_ns(void)
+{
+	struct timespec ts;
+
+	get_monotonic_boottime(&ts);
+
+	return timespec_to_ns(&ts);
+}
+
 int hts221_config_drdy(struct hts221_dev *dev, bool enable);
-int hts221_push_data(struct iio_dev *indio_dev);
-int hts221_probe(struct iio_dev *indio_dev);
-int hts221_remove(struct iio_dev *indio_dev);
-int hts221_power_on(struct hts221_dev *dev);
-int hts221_power_off(struct hts221_dev *dev);
+bool hts221_parse_data(struct hts221_dev *dev);
+int hts221_probe(struct hts221_dev *dev);
+int hts221_remove(struct hts221_dev *dev);
+int hts221_sensor_power_on(struct hts221_sensor *sensor);
+int hts221_sensor_power_off(struct hts221_sensor *sensor);
 #ifdef CONFIG_IIO_BUFFER
-int hts221_allocate_buffer(struct iio_dev *indio_dev);
-void hts221_deallocate_buffer(struct iio_dev *indio_dev);
-int hts221_allocate_trigger(struct iio_dev *indio_dev);
-void hts221_deallocate_trigger(struct iio_dev *indio_dev);
+int hts221_allocate_buffers(struct hts221_dev *dev);
+void hts221_deallocate_buffers(struct hts221_dev *dev);
+int hts221_allocate_triggers(struct hts221_dev *dev);
+void hts221_deallocate_triggers(struct hts221_dev *dev);
 #else
-static inline int hts221_allocate_buffer(struct iio_dev *indio_dev)
+static inline int hts221_allocate_buffers(struct hts221_dev *dev)
 {
 	return 0;
 }
 
-static inline int hts221_allocate_trigger(struct iio_dev *indio_dev)
+static inline void hts221_deallocate_buffers(struct hts221_dev *dev)
+{
+}
+
+static inline int hts221_allocate_triggers(struct hts221_dev *dev)
 {
 	return 0;
 }
 
-static inline void hts221_deallocate_trigger(struct iio_dev *indio_dev)
+static inline void hts221_deallocate_triggers(struct hts221_dev *dev)
 {
 }
 #endif /* CONFIG_IIO_BUFFER */

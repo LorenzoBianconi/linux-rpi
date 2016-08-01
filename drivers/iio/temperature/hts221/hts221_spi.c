@@ -11,6 +11,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/spi/spi.h>
+#include <linux/slab.h>
 #include "hts221.h"
 
 #define SENSORS_SPI_READ	0x80
@@ -21,8 +22,7 @@ static int hts221_spi_read(struct device *device, u8 addr, int len, u8 *data)
 	int err;
 	struct spi_message msg;
 	struct spi_device *spi = to_spi_device(device);
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-	struct hts221_dev *dev = iio_priv(indio_dev);
+	struct hts221_dev *dev = spi_get_drvdata(spi);
 
 	struct spi_transfer xfers[] = {
 		{
@@ -58,8 +58,7 @@ static int hts221_spi_write(struct device *device, u8 addr, int len, u8 *data)
 {
 	struct spi_message msg;
 	struct spi_device *spi = to_spi_device(device);
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-	struct hts221_dev *dev = iio_priv(indio_dev);
+	struct hts221_dev *dev = spi_get_drvdata(spi);
 
 	struct spi_transfer xfers = {
 		.tx_buf = dev->tb.tx_buf,
@@ -77,6 +76,7 @@ static int hts221_spi_write(struct device *device, u8 addr, int len, u8 *data)
 
 	spi_message_init(&msg);
 	spi_message_add_tail(&xfers, &msg);
+
 	return spi_sync(spi, &msg);
 }
 
@@ -88,40 +88,38 @@ static const struct hts221_transfer_function hts221_transfer_fn = {
 static int hts221_spi_probe(struct spi_device *spi)
 {
 	int err;
-	struct iio_dev *indio_dev;
 	struct hts221_dev *dev;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*dev));
-	if (!indio_dev)
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	if (!dev)
 		return -ENOMEM;
 
-	dev = iio_priv(indio_dev);
-
-	spi_set_drvdata(spi, indio_dev);
-	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = spi->modalias;
-
+	spi_set_drvdata(spi, dev);
 	dev->name = spi->modalias;
 	dev->dev = &spi->dev;
 	dev->irq = spi->irq;
 	dev->tf = &hts221_transfer_fn;
 
-	err = hts221_probe(indio_dev);
-	if (err < 0)
+	err = hts221_probe(dev);
+	if (err < 0) {
+		kfree(dev);
 		return err;
+	}
 
 	dev_info(&spi->dev, "hts221 spi sensor probed\n");
+
 	return 0;
 }
 
 static int hts221_spi_remove(struct spi_device *spi)
 {
 	int err;
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
+	struct hts221_dev *dev = spi_get_drvdata(spi);
 
-	err = hts221_remove(indio_dev);
+	err = hts221_remove(dev);
 	if (err < 0)
 		return err;
+
 	dev_info(&spi->dev, "hts221 spi sensor removed\n");
 
 	return 0;
