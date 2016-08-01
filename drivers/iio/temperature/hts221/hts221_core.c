@@ -134,6 +134,7 @@ static const struct iio_chan_spec hts221_h_channels[] = {
 			.endianness = IIO_LE,
 		},
 	},
+	IIO_CHAN_SOFT_TIMESTAMP(1),
 };
 
 static const struct iio_chan_spec hts221_t_channels[] = {
@@ -153,6 +154,7 @@ static const struct iio_chan_spec hts221_t_channels[] = {
 			.endianness = IIO_LE,
 		},
 	},
+	IIO_CHAN_SOFT_TIMESTAMP(1),
 };
 
 static int hts221_write_with_mask(struct hts221_dev *dev, u8 addr, u8 mask,
