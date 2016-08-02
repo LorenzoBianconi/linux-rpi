@@ -717,7 +717,7 @@ static struct iio_dev *hts221_alloc_iio_sensor(struct hts221_dev *dev,
 	struct iio_dev *iio_dev;
 	struct hts221_sensor *sensor;
 
-	iio_dev = iio_device_alloc(sizeof(*sensor));
+	iio_dev = devm_iio_device_alloc(dev->dev, sizeof(*sensor));
 	if (!iio_dev)
 		return NULL;
 
@@ -771,28 +771,28 @@ int hts221_probe(struct hts221_dev *dev)
 		dev->iio_devs[i] = hts221_alloc_iio_sensor(dev, i);
 		if (!dev->iio_devs[i]) {
 			err = -ENOMEM;
-			goto iio_init_err;
+			goto power_off;
 		}
 		sensor = iio_priv(dev->iio_devs[i]);
 
 		err = hts221_update_avg(sensor,
 					hts221_avg_list[i].avg_avl[3].avg);
 		if (err < 0)
-			goto iio_init_err;
+			goto power_off;
 
 		err = hts221_parse_caldata(sensor);
 		if (err < 0)
-			goto iio_init_err;
+			goto power_off;
 	}
 
 	if (dev->irq > 0) {
 		err = hts221_allocate_buffers(dev);
 		if (err < 0)
-			goto iio_init_err;
+			goto power_off;
 
 		err = hts221_allocate_triggers(dev);
 		if (err)
-			goto iio_init_err;
+			goto power_off;
 	}
 
 	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
@@ -813,11 +813,7 @@ int hts221_probe(struct hts221_dev *dev)
 iio_register_err:
 	for (i = count - 1; i >= 0; i--)
 		iio_device_unregister(dev->iio_devs[i]);
-iio_init_err:
-	for (i = 0; i < HTS221_SENSOR_MAX; i++)
-		if (dev->iio_devs[i])
-			iio_device_free(dev->iio_devs[i]);
-
+power_off:
 	hts221_dev_power_off(dev);
 unlock:
 	mutex_unlock(&dev->lock);
@@ -830,10 +826,8 @@ int hts221_remove(struct hts221_dev *dev)
 {
 	int i, err;
 
-	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
+	for (i = 0; i < HTS221_SENSOR_MAX; i++)
 		iio_device_unregister(dev->iio_devs[i]);
-		iio_device_free(dev->iio_devs[i]);
-	}
 
 	if (dev->irq > 0) {
 		hts221_deallocate_triggers(dev);

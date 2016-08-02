@@ -73,8 +73,9 @@ int hts221_allocate_triggers(struct hts221_dev *dev)
 
 	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
 		sensor = iio_priv(dev->iio_devs[i]);
-		sensor->trig = iio_trigger_alloc("%s-trigger",
-						 dev->iio_devs[i]->name);
+		sensor->trig = devm_iio_trigger_alloc(dev->dev, "%s-trigger",
+						      dev->iio_devs[i]->name,
+						      dev->iio_devs[i]->id);
 		if (!sensor->trig) {
 			err = -ENOMEM;
 			goto iio_trigger_error;
@@ -100,11 +101,6 @@ iio_trigger_error:
 		sensor = iio_priv(dev->iio_devs[i]);
 		iio_trigger_unregister(sensor->trig);
 	}
-	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
-		sensor = iio_priv(dev->iio_devs[i]);
-		if (sensor->trig)
-			iio_trigger_free(sensor->trig);
-	}
 	devm_free_irq(dev->dev, dev->irq, dev);
 
 	return err;
@@ -118,7 +114,6 @@ void hts221_deallocate_triggers(struct hts221_dev *dev)
 	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
 		sensor = iio_priv(dev->iio_devs[i]);
 		iio_trigger_unregister(sensor->trig);
-		iio_trigger_free(sensor->trig);
 	}
 
 	devm_free_irq(dev->dev, dev->irq, dev);
