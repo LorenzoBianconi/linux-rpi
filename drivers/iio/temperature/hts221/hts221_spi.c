@@ -20,7 +20,6 @@
 static int hts221_spi_read(struct device *device, u8 addr, int len, u8 *data)
 {
 	int err;
-	struct spi_message msg;
 	struct spi_device *spi = to_spi_device(device);
 	struct hts221_dev *dev = spi_get_drvdata(spi);
 
@@ -41,11 +40,7 @@ static int hts221_spi_read(struct device *device, u8 addr, int len, u8 *data)
 		addr |= SPI_AUTO_INCREMENT;
 	dev->tb.tx_buf[0] = addr | SENSORS_SPI_READ;
 
-	spi_message_init(&msg);
-	spi_message_add_tail(&xfers[0], &msg);
-	spi_message_add_tail(&xfers[1], &msg);
-
-	err = spi_sync(spi, &msg);
+	err = spi_sync_transfer(spi, xfers,  ARRAY_SIZE(xfers));
 	if (err < 0)
 		return err;
 
@@ -56,7 +51,6 @@ static int hts221_spi_read(struct device *device, u8 addr, int len, u8 *data)
 
 static int hts221_spi_write(struct device *device, u8 addr, int len, u8 *data)
 {
-	struct spi_message msg;
 	struct spi_device *spi = to_spi_device(device);
 	struct hts221_dev *dev = spi_get_drvdata(spi);
 
@@ -74,10 +68,7 @@ static int hts221_spi_write(struct device *device, u8 addr, int len, u8 *data)
 	dev->tb.tx_buf[0] = addr;
 	memcpy(&dev->tb.tx_buf[1], data, len);
 
-	spi_message_init(&msg);
-	spi_message_add_tail(&xfers, &msg);
-
-	return spi_sync(spi, &msg);
+	return spi_sync_transfer(spi, &xfers, 1);
 }
 
 static const struct hts221_transfer_function hts221_transfer_fn = {
