@@ -776,7 +776,7 @@ int hts221_probe(struct hts221_dev *dev)
 		sensor = iio_priv(dev->iio_devs[i]);
 
 		err = hts221_update_avg(sensor,
-					hts221_avg_list[i].avg_avl[0].avg);
+					hts221_avg_list[i].avg_avl[3].avg);
 		if (err < 0)
 			goto iio_init_err;
 
