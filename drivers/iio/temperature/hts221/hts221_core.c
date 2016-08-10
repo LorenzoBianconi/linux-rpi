@@ -163,9 +163,12 @@ static int hts221_write_with_mask(struct hts221_dev *dev, u8 addr, u8 mask,
 	u8 data;
 	int err;
 
+	mutex_lock(&dev->lock);
+
 	err = dev->tf->read(dev->dev, addr, 1, &data);
 	if (err < 0) {
 		dev_err(dev->dev, "failed to read %02x register\n", addr);
+		mutex_unlock(&dev->lock);
 		return err;
 	}
 
@@ -174,8 +177,11 @@ static int hts221_write_with_mask(struct hts221_dev *dev, u8 addr, u8 mask,
 	err = dev->tf->write(dev->dev, addr, 1, &data);
 	if (err < 0) {
 		dev_err(dev->dev, "failed to write %02x register\n", addr);
+		mutex_unlock(&dev->lock);
 		return err;
 	}
+
+	mutex_unlock(&dev->lock);
 
 	return 0;
 }
@@ -202,14 +208,9 @@ static int hts221_check_whoami(struct hts221_dev *dev)
 
 int hts221_config_drdy(struct hts221_dev *dev, bool enable)
 {
-	int err;
 	u8 val = (enable) ? 0x04 : 0;
 
-	mutex_lock(&dev->lock);
-	err = hts221_write_with_mask(dev, REG_CNTRL3_ADDR, DRDY_MASK, val);
-	mutex_unlock(&dev->lock);
-
-	return err;
+	return hts221_write_with_mask(dev, REG_CNTRL3_ADDR, DRDY_MASK, val);
 }
 
 bool hts221_parse_data(struct hts221_dev *dev)
@@ -344,9 +345,7 @@ hts221_sysfs_set_h_avg_val(struct device *device,
 	if (err < 0)
 		return err;
 
-	mutex_lock(&sensor->dev->lock);
 	err = hts221_update_avg(sensor, (u16)val);
-	mutex_unlock(&sensor->dev->lock);
 
 	return err < 0 ? err : size;
 }
@@ -379,9 +378,7 @@ hts221_sysfs_set_t_avg_val(struct device *device,
 	if (err < 0)
 		return err;
 
-	mutex_lock(&sensor->dev->lock);
 	err = hts221_update_avg(sensor, (u16)val);
-	mutex_unlock(&sensor->dev->lock);
 
 	return err < 0 ? err : size;
 }
@@ -425,11 +422,9 @@ hts221_sysfs_set_sampling_frequency(struct device *device,
 	if (err < 0)
 		return err;
 
-	mutex_lock(&sensor->dev->lock);
 	err = hts221_sensor_update_odr(sensor, odr);
 	if (!err)
 		sensor->odr = odr;
-	mutex_unlock(&sensor->dev->lock);
 
 	return err < 0 ? err : size;
 }
@@ -458,10 +453,13 @@ static int hts221_dev_power_off(struct hts221_dev *dev)
 	int err;
 	u8 data = 0;
 
+	mutex_lock(&dev->lock);
+
 	err = dev->tf->write(dev->dev, REG_CNTRL1_ADDR, 1, &data);
 	if (err < 0) {
 		dev_err(dev->dev, "failed to write %02x register\n",
 			REG_CNTRL1_ADDR);
+		mutex_unlock(&dev->lock);
 		return err;
 	}
 
@@ -469,8 +467,11 @@ static int hts221_dev_power_off(struct hts221_dev *dev)
 	if (err < 0) {
 		dev_err(dev->dev, "failed to write %02x register\n",
 			REG_CNTRL2_ADDR);
+		mutex_unlock(&dev->lock);
 		return err;
 	}
+
+	mutex_unlock(&dev->lock);
 
 	return 0;
 }
@@ -587,20 +588,19 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 		if (indio_dev->currentmode == INDIO_BUFFER_TRIGGERED)
 			return -EBUSY;
 
-		mutex_lock(&dev->lock);
-
 		ret = hts221_sensor_power_on(sensor);
-		if (ret < 0) {
-			mutex_unlock(&dev->lock);
+		if (ret < 0)
 			return ret;
-		}
 
 		msleep(50);
+
+		mutex_lock(&dev->lock);
 		ret = dev->tf->read(dev->dev, ch->address, 2, data);
 		if (ret < 0) {
 			mutex_unlock(&dev->lock);
 			return ret;
 		}
+		mutex_unlock(&dev->lock);
 
 		ret = hts221_sensor_power_off(sensor);
 		if (ret < 0) {
@@ -611,7 +611,6 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 		*val = (s16)get_unaligned_le16(data);
 		ret = IIO_VAL_INT;
 
-		mutex_unlock(&dev->lock);
 		break;
 	}
 	case IIO_CHAN_INFO_SCALE: {
@@ -757,15 +756,13 @@ int hts221_probe(struct hts221_dev *dev)
 
 	mutex_init(&dev->lock);
 
-	mutex_lock(&dev->lock);
-
 	err = hts221_check_whoami(dev);
 	if (err < 0)
-		goto unlock;
+		return err;
 
 	err = hts221_update_odr(dev, 1);
 	if (err < 0)
-		goto unlock;
+		return err;
 
 	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
 		dev->iio_devs[i] = hts221_alloc_iio_sensor(dev, i);
@@ -795,6 +792,10 @@ int hts221_probe(struct hts221_dev *dev)
 			goto power_off;
 	}
 
+	err = hts221_dev_power_off(dev);
+	if (err < 0)
+		return err;
+
 	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
 		err = iio_device_register(dev->iio_devs[i]);
 		if (err < 0)
@@ -802,21 +803,16 @@ int hts221_probe(struct hts221_dev *dev)
 		count++;
 	}
 
-	err = hts221_dev_power_off(dev);
-	if (err < 0)
-		goto unlock;
-
-	mutex_unlock(&dev->lock);
-
 	return 0;
 
 iio_register_err:
 	for (i = count - 1; i >= 0; i--)
 		iio_device_unregister(dev->iio_devs[i]);
+
+	return err;
+
 power_off:
 	hts221_dev_power_off(dev);
-unlock:
-	mutex_unlock(&dev->lock);
 
 	return err;
 }
