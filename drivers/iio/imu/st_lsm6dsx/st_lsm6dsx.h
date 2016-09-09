@@ -40,10 +40,11 @@ enum st_lsm6dsx_sensor_id {
 };
 
 struct st_lsm6dsx_sensor {
-	bool enabled;
 	enum st_lsm6dsx_sensor_id id;
 	struct st_lsm6dsx_dev *dev;
+	struct iio_trigger *trig;
 
+	bool enabled;
 	u16 odr;
 	u32 gain;
 };
@@ -62,8 +63,36 @@ struct st_lsm6dsx_dev {
 	struct st_lsm6dsx_transfer_buffer tb;
 #endif /* CONFIG_IIO_ST_LSM6DSX_SPI */
 };
-#endif /* ST_LSM6DSX_H */
 
 int st_lsm6dsx_probe(struct st_lsm6dsx_dev *dev);
 int st_lsm6dsx_remove(struct st_lsm6dsx_dev *dev);
+int st_lsm6dsx_set_enable(struct st_lsm6dsx_sensor *sensor, bool enable);
+int st_lsm6dsx_set_drdy_irq(struct st_lsm6dsx_sensor *sensor, bool enable);
+#ifdef CONFIG_IIO_BUFFER
+int st_lsm6dsx_allocate_triggers(struct st_lsm6dsx_dev *dev);
+int st_lsm6dsx_deallocate_triggers(struct st_lsm6dsx_dev *dev);
+int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_dev *dev);
+int st_lsm6dsx_deallocate_buffers(struct st_lsm6dsx_dev *dev);
+#else
+static inline int st_lsm6dsx_allocate_triggers(struct st_lsm6dsx_dev *dev)
+{
+	return 0;
+}
+
+static inline int st_lsm6dsx_deallocate_triggers(struct st_lsm6dsx_dev *dev)
+{
+	return 0;
+}
+
+static inline int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_dev *dev)
+{
+	return 0;
+}
+
+static inline int st_lsm6dsx_deallocate_buffers(struct st_lsm6dsx_dev *dev)
+{
+	return 0;
+}
+#endif /* CONFIG_IIO_BUFFER */
+#endif /* ST_LSM6DSX_H */
 

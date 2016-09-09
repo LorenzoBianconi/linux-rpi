@@ -11,6 +11,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/iio/iio.h>
@@ -308,6 +309,7 @@ static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
 	u8 val;
 	int i, err;
 	enum st_lsm6dsx_sensor_id id = sensor->id;
+	struct st_lsm6dsx_dev *dev = sensor->dev;
 
 	for (i = 0; i < ST_LSM6DSX_ODR_LIST_SIZE; i++)
 		if (st_lsm6dsx_odr_table[id].odr_avl[i].hz == odr)
@@ -316,19 +318,24 @@ static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
 	if (i == ST_LSM6DSX_ODR_LIST_SIZE)
 		return -EINVAL;
 
+	disable_irq(dev->irq);
+
 	val = st_lsm6dsx_odr_table[id].odr_avl[i].val;
 	err = st_lsm6dsx_write_with_mask(sensor->dev,
 					 st_lsm6dsx_odr_table[id].addr,
 					 st_lsm6dsx_odr_table[id].mask, val);
-	if (err < 0)
+	if (err < 0) {
+		enable_irq(dev->irq);
 		return err;
+	}
 
 	sensor->odr = odr;
+	enable_irq(dev->irq);
 
 	return 0;
 }
 
-static int st_lsm6dsx_set_enable(struct st_lsm6dsx_sensor *sensor, bool enable)
+int st_lsm6dsx_set_enable(struct st_lsm6dsx_sensor *sensor, bool enable)
 {
 	int err;
 	enum st_lsm6dsx_sensor_id id = sensor->id;
@@ -340,8 +347,17 @@ static int st_lsm6dsx_set_enable(struct st_lsm6dsx_sensor *sensor, bool enable)
 						 st_lsm6dsx_odr_table[id].addr,
 						 st_lsm6dsx_odr_table[id].mask,
 						 0);
+	if (err < 0)
+		return err;
 
-	return err;
+	sensor->enabled = enable;
+
+	return 0;
+}
+
+int st_lsm6dsx_set_drdy_irq(struct st_lsm6dsx_sensor *sensor, bool enable)
+{
+	return 0;
 }
 
 static int st_lsm6dsx_read_raw(struct iio_dev *iio_dev,
@@ -615,6 +631,16 @@ int st_lsm6dsx_probe(struct st_lsm6dsx_dev *dev)
 	if (err < 0)
 		goto iio_device_free;
 
+	if (dev->irq > 0) {
+		err = st_lsm6dsx_allocate_buffers(dev);
+		if (err < 0)
+			goto iio_device_free;
+
+		err = st_lsm6dsx_allocate_triggers(dev);
+		if (err < 0)
+			goto deallocate_buffers;
+	}
+
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
 		err = iio_device_register(dev->iio_devs[i]);
 		if (err)
@@ -626,6 +652,11 @@ int st_lsm6dsx_probe(struct st_lsm6dsx_dev *dev)
 iio_device_unregister:
 	for (j = i - 1; j >= 0; j--)
 		iio_device_unregister(dev->iio_devs[i]);
+	if (dev->irq > 0)
+		st_lsm6dsx_deallocate_triggers(dev);
+deallocate_buffers:
+	if (dev->irq > 0)
+		st_lsm6dsx_deallocate_buffers(dev);
 iio_device_free:
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++)
 		if (dev->iio_devs[i])
@@ -639,10 +670,16 @@ int st_lsm6dsx_remove(struct st_lsm6dsx_dev *dev)
 {
 	int i;
 
-	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
+	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++)
 		iio_device_unregister(dev->iio_devs[i]);
-		iio_device_free(dev->iio_devs[i]);
+
+	if (dev->irq > 0) {
+		st_lsm6dsx_deallocate_triggers(dev);
+		st_lsm6dsx_deallocate_buffers(dev);
 	}
+
+	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++)
+		iio_device_free(dev->iio_devs[i]);
 
 	return 0;
 }
