@@ -19,6 +19,10 @@
 #include <asm/unaligned.h>
 #include "st_lsm6dsx.h"
 
+#define REG_INT1_ADDR		0x0d
+#define REG_INT2_ADDR		0x0e
+#define REG_ACC_DRDY_IRQ_MASK	0x01
+#define REG_GYRO_DRDY_IRQ_MASK	0x02
 #define REG_WHOAMI_ADDR		0x0f
 #define REG_WHOAMI_VAL		0x69
 #define REG_RESET_ADDR		0x12
@@ -357,7 +361,21 @@ int st_lsm6dsx_set_enable(struct st_lsm6dsx_sensor *sensor, bool enable)
 
 int st_lsm6dsx_set_drdy_irq(struct st_lsm6dsx_sensor *sensor, bool enable)
 {
-	return 0;
+	u8 mask, addr = REG_INT1_ADDR;
+	u8 val = (enable) ? 1 : 0;
+
+	switch (sensor->id) {
+	case ST_LSM6DSX_ID_ACC:
+		mask = REG_ACC_DRDY_IRQ_MASK;
+		break;
+	case ST_LSM6DSX_ID_GYRO:
+		mask = REG_GYRO_DRDY_IRQ_MASK;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return st_lsm6dsx_write_with_mask(sensor->dev, addr, mask, val);
 }
 
 static int st_lsm6dsx_read_raw(struct iio_dev *iio_dev,
