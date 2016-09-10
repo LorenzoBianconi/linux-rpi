@@ -409,7 +409,7 @@ int st_lsm6dsx_get_outdata(struct st_lsm6dsx_dev *dev)
 			mutex_unlock(&dev->lock);
 			return err;
 		}
-	
+
 		INCR(sensor->rdata.t_rb, ST_LSM6DSX_RING_SIZE);
 		if (sensor->rdata.t_rb == sensor->rdata.h_rb)
 			INCR(sensor->rdata.h_rb, ST_LSM6DSX_RING_SIZE);
@@ -534,7 +534,7 @@ st_lsm6dsx_sysfs_set_sampling_frequency(struct device *device,
 		return err;
 
 	err = st_lsm6dsx_set_odr(sensor, odr);
-	
+
 	return err < 0 ? err : size;
 }
 
