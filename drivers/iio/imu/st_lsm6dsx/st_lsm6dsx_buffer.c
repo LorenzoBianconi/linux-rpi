@@ -19,7 +19,6 @@
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/buffer.h>
-
 #include "st_lsm6dsx.h"
 
 static int st_lsm6dsx_trig_set_state(struct iio_trigger *trig, bool state)
@@ -37,6 +36,10 @@ static const struct iio_trigger_ops st_lsm6dsx_trigger_ops = {
 
 static irqreturn_t st_lsm6dsx_trigger_handler_bh(int irq, void *private)
 {
+	struct st_lsm6dsx_dev *dev = (struct st_lsm6dsx_dev *)private;
+
+	st_lsm6dsx_get_outdata(dev);
+
 	return IRQ_HANDLED;
 }
 
@@ -126,6 +129,22 @@ static const struct iio_buffer_setup_ops st_lsm6dsx_buffer_ops = {
 
 static irqreturn_t st_lsm6dsx_buffer_handler_bh(int irq, void *p)
 {
+	u8 *ptr;
+	struct iio_poll_func *pf = p;
+	struct iio_dev *iio_dev = pf->indio_dev;
+	struct st_lsm6dsx_sensor *sensor = iio_priv(iio_dev);
+
+	mutex_lock(&sensor->lock);
+	while (sensor->rdata.h_rb != sensor->rdata.t_rb) {
+		ptr = sensor->rdata.data[sensor->rdata.h_rb].sample;
+		iio_push_to_buffers_with_timestamp(iio_dev, ptr,
+						   pf->timestamp);
+		INCR(sensor->rdata.h_rb, ST_LSM6DSX_RING_SIZE);
+	}
+	mutex_unlock(&sensor->lock);
+
+	iio_trigger_notify_done(sensor->trig);
+
 	return IRQ_HANDLED;
 }
 
@@ -161,3 +180,4 @@ int st_lsm6dsx_deallocate_buffers(struct st_lsm6dsx_dev *dev)
 
 	return 0;
 }
+

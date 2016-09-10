@@ -39,6 +39,24 @@ enum st_lsm6dsx_sensor_id {
 	ST_LSM6DSX_ID_MAX,
 };
 
+#define INCR(x, sz)			\
+	do {				\
+		(x)++;			\
+		(x) &= ((sz) - 1);	\
+	} while (0)
+
+#define ST_LSM6DSX_RING_SIZE	8
+#define ST_LSM6DSX_SAMPLE_SIZE	6
+
+struct st_lsm6dsx_sample {
+	u8 sample[ST_LSM6DSX_SAMPLE_SIZE];
+};
+
+struct st_lsm6dsx_ring {
+	u8 h_rb, t_rb;
+	struct st_lsm6dsx_sample data[ST_LSM6DSX_RING_SIZE];
+};
+
 struct st_lsm6dsx_sensor {
 	enum st_lsm6dsx_sensor_id id;
 	struct st_lsm6dsx_dev *dev;
@@ -47,6 +65,9 @@ struct st_lsm6dsx_sensor {
 	bool enabled;
 	u16 odr;
 	u32 gain;
+
+	struct mutex lock;
+	struct st_lsm6dsx_ring rdata;
 };
 
 struct st_lsm6dsx_dev {
@@ -66,6 +87,7 @@ struct st_lsm6dsx_dev {
 
 int st_lsm6dsx_probe(struct st_lsm6dsx_dev *dev);
 int st_lsm6dsx_remove(struct st_lsm6dsx_dev *dev);
+int st_lsm6dsx_get_outdata(struct st_lsm6dsx_dev *dev);
 int st_lsm6dsx_set_enable(struct st_lsm6dsx_sensor *sensor, bool enable);
 int st_lsm6dsx_set_drdy_irq(struct st_lsm6dsx_sensor *sensor, bool enable);
 #ifdef CONFIG_IIO_BUFFER

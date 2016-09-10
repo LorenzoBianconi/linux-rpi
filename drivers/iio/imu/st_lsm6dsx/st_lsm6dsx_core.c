@@ -16,6 +16,7 @@
 #include <linux/delay.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/iio/trigger.h>
 #include <asm/unaligned.h>
 #include "st_lsm6dsx.h"
 
@@ -35,6 +36,7 @@
 #define REG_ROUNDING_MASK	0x04
 #define REG_LIR_ADDR		0x58
 #define REG_LIR_MASK		0x01
+#define REG_DATA_AVL_ADDR	0x1e
 
 #define REG_ACC_ODR_ADDR	0x10
 #define REG_ACC_ODR_MASK	0xf0
@@ -57,10 +59,14 @@
 #define ST_LSM6DSX_ACC_FS_8G_GAIN	IIO_G_TO_M_S_2(244)
 #define ST_LSM6DSX_ACC_FS_16G_GAIN	IIO_G_TO_M_S_2(488)
 
+#define ST_LSM6DSX_DATA_ACC_AVL_MASK	0x01
+
 #define ST_LSM6DSX_GYRO_FS_245_GAIN	IIO_DEGREE_TO_RAD(4375)
 #define ST_LSM6DSX_GYRO_FS_500_GAIN	IIO_DEGREE_TO_RAD(8750)
 #define ST_LSM6DSX_GYRO_FS_1000_GAIN	IIO_DEGREE_TO_RAD(17500)
 #define ST_LSM6DSX_GYRO_FS_2000_GAIN	IIO_DEGREE_TO_RAD(70000)
+
+#define ST_LSM6DSX_DATA_GYRO_AVL_MASK	0x02
 
 struct st_lsm6dsx_odr {
 	u32 hz;
@@ -378,6 +384,65 @@ int st_lsm6dsx_set_drdy_irq(struct st_lsm6dsx_sensor *sensor, bool enable)
 	return st_lsm6dsx_write_with_mask(sensor->dev, addr, mask, val);
 }
 
+int st_lsm6dsx_get_outdata(struct st_lsm6dsx_dev *dev)
+{
+	int err;
+	u8 avl_data, *ptr;
+	struct st_lsm6dsx_sensor *sensor;
+
+	mutex_lock(&dev->lock);
+	err = dev->tf->read(dev->dev, REG_DATA_AVL_ADDR, 1, &avl_data);
+	if (err < 0) {
+		mutex_unlock(&dev->lock);
+		return err;
+	}
+
+	if (avl_data & ST_LSM6DSX_DATA_ACC_AVL_MASK) {
+		sensor = iio_priv(dev->iio_devs[ST_LSM6DSX_ID_ACC]);
+
+		mutex_lock(&sensor->lock);
+		ptr = sensor->rdata.data[sensor->rdata.t_rb].sample;
+		err = dev->tf->read(dev->dev, REG_ACC_OUT_X_L_ADDR,
+				    ST_LSM6DSX_SAMPLE_SIZE, ptr);
+		if (err < 0) {
+			mutex_unlock(&sensor->lock);
+			mutex_unlock(&dev->lock);
+			return err;
+		}
+	
+		INCR(sensor->rdata.t_rb, ST_LSM6DSX_RING_SIZE);
+		if (sensor->rdata.t_rb == sensor->rdata.h_rb)
+			INCR(sensor->rdata.h_rb, ST_LSM6DSX_RING_SIZE);
+		mutex_unlock(&sensor->lock);
+
+		iio_trigger_poll(sensor->trig);
+	}
+
+	if (avl_data & ST_LSM6DSX_DATA_GYRO_AVL_MASK) {
+		sensor = iio_priv(dev->iio_devs[ST_LSM6DSX_ID_GYRO]);
+
+		mutex_lock(&sensor->lock);
+		ptr = sensor->rdata.data[sensor->rdata.t_rb].sample;
+		err = dev->tf->read(dev->dev, REG_GYRO_OUT_X_L_ADDR,
+				    ST_LSM6DSX_SAMPLE_SIZE, ptr);
+		if (err < 0) {
+			mutex_unlock(&sensor->lock);
+			mutex_unlock(&dev->lock);
+			return err;
+		}
+
+		INCR(sensor->rdata.t_rb, ST_LSM6DSX_RING_SIZE);
+		if (sensor->rdata.t_rb == sensor->rdata.h_rb)
+			INCR(sensor->rdata.h_rb, ST_LSM6DSX_RING_SIZE);
+		mutex_unlock(&sensor->lock);
+
+		iio_trigger_poll(sensor->trig);
+	}
+	mutex_unlock(&dev->lock);
+
+	return 0;
+}
+
 static int st_lsm6dsx_read_raw(struct iio_dev *iio_dev,
 			       struct iio_chan_spec const *ch,
 			       int *val, int *val2, long mask)
@@ -605,6 +670,8 @@ static struct iio_dev *st_lsm6dsx_alloc_iiodev(struct st_lsm6dsx_dev *dev,
 	sensor->dev = dev;
 	sensor->odr = st_lsm6dsx_odr_table[id].odr_avl[0].hz;
 	sensor->gain = st_lsm6dsx_fs_table[id].fs_avl[0].gain;
+	memset(&sensor->rdata, 0, sizeof(struct st_lsm6dsx_ring));
+	mutex_init(&sensor->lock);
 
 	switch (id) {
 	case ST_LSM6DSX_ID_ACC:
