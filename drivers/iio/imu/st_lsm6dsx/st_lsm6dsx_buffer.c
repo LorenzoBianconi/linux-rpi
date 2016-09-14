@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
+#include <linux/slab.h>
 #include <linux/irqreturn.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/trigger.h>
@@ -21,24 +22,41 @@
 #include <linux/iio/buffer.h>
 #include "st_lsm6dsx.h"
 
+#define REG_INT1_ADDR		0x0d
+#define REG_DATA_AVL_ADDR	0x1e
+
 static int st_lsm6dsx_trig_set_state(struct iio_trigger *trig, bool state)
 {
+	u8 val = (state) ? 1 : 0;
 	struct iio_dev *iio_dev = iio_trigger_get_drvdata(trig);
 	struct st_lsm6dsx_sensor *sensor = iio_priv(iio_dev);
 
-	return st_lsm6dsx_set_drdy_irq(sensor, state);
+	return st_lsm6dsx_write_with_mask(sensor->dev, REG_INT1_ADDR,
+					  sensor->drdy_irq_mask, val);
 }
 
 static const struct iio_trigger_ops st_lsm6dsx_trigger_ops = {
 	.owner = THIS_MODULE,
-	.set_trigger_state = &st_lsm6dsx_trig_set_state,
+	.set_trigger_state = st_lsm6dsx_trig_set_state,
 };
 
 static irqreturn_t st_lsm6dsx_trigger_handler_bh(int irq, void *private)
 {
+	int i, err;
+	u8 avl_data;
+	struct st_lsm6dsx_sensor *sensor;
 	struct st_lsm6dsx_dev *dev = (struct st_lsm6dsx_dev *)private;
 
-	st_lsm6dsx_get_outdata(dev);
+	err = dev->tf->read(dev->dev, REG_DATA_AVL_ADDR, 1, &avl_data);
+	if (err < 0)
+		return IRQ_HANDLED;
+
+	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
+		sensor = iio_priv(dev->iio_devs[i]);
+
+		if (avl_data & sensor->drdy_data_mask)
+			iio_trigger_poll_chained(sensor->trig);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -47,10 +65,12 @@ int st_lsm6dsx_allocate_triggers(struct st_lsm6dsx_dev *dev)
 {
 	int i, err, count = 0;
 	struct st_lsm6dsx_sensor *sensor;
+	unsigned long irq_type;
 
+	irq_type = irqd_get_trigger_type(irq_get_irq_data(dev->irq));
 	err = devm_request_threaded_irq(dev->dev, dev->irq, NULL,
 					st_lsm6dsx_trigger_handler_bh,
-					IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+					irq_type | IRQF_ONESHOT,
 					dev->name, dev);
 	if (err) {
 		dev_err(dev->dev, "failed to request trigger irq %d\n",
@@ -105,6 +125,7 @@ int st_lsm6dsx_deallocate_triggers(struct st_lsm6dsx_dev *dev)
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
 		sensor = iio_priv(dev->iio_devs[i]);
 		iio_trigger_unregister(sensor->trig);
+		iio_trigger_free(sensor->trig);
 	}
 
 	return 0;
@@ -129,19 +150,36 @@ static const struct iio_buffer_setup_ops st_lsm6dsx_buffer_ops = {
 
 static irqreturn_t st_lsm6dsx_buffer_handler_bh(int irq, void *p)
 {
-	u8 *ptr;
+	int i, err, chan_byte, in = 0, out = 0;
 	struct iio_poll_func *pf = p;
 	struct iio_dev *iio_dev = pf->indio_dev;
+	struct iio_chan_spec const *ch = iio_dev->channels;
 	struct st_lsm6dsx_sensor *sensor = iio_priv(iio_dev);
+	struct st_lsm6dsx_dev *dev = sensor->dev;
+	u8 out_data[iio_dev->scan_bytes], buffer[ST_LSM6DSX_SAMPLE_SIZE];
 
-	mutex_lock(&sensor->lock);
-	while (sensor->rdata.h_rb != sensor->rdata.t_rb) {
-		ptr = sensor->rdata.data[sensor->rdata.h_rb].sample;
-		iio_push_to_buffers_with_timestamp(iio_dev, ptr,
-						   pf->timestamp);
-		INCR(sensor->rdata.h_rb, ST_LSM6DSX_RING_SIZE);
+
+	mutex_lock(&dev->lock);
+
+	err = dev->tf->read(dev->dev, ch[0].address, ST_LSM6DSX_SAMPLE_SIZE,
+			    buffer);
+	if (err < 0)
+		goto unlock;
+
+	for (i = 0; i < iio_dev->num_channels; i++) {
+		chan_byte = ch[i].scan_type.storagebits >> 3;
+
+		if (test_bit(i, iio_dev->active_scan_mask)) {
+			memcpy(&out_data[out], &buffer[in], chan_byte);
+			out += chan_byte;
+		}
+		in += chan_byte;
 	}
-	mutex_unlock(&sensor->lock);
+
+	iio_push_to_buffers_with_timestamp(iio_dev, out_data, pf->timestamp);
+
+unlock:
+	mutex_unlock(&dev->lock);
 
 	iio_trigger_notify_done(sensor->trig);
 

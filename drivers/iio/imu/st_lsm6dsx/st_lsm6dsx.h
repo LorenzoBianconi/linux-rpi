@@ -15,7 +15,8 @@
 #include <linux/device.h>
 
 #define ST_LSM6DS3_DEV_NAME	"lsm6ds3"
-#define ST_LSM6DSM_DEV_NAME	"lsm6dsm"
+
+#define ST_LSM6DSX_SAMPLE_SIZE	6
 
 #if defined(CONFIG_IIO_ST_LSM6DSX_SPI) || \
 	defined(CONFIG_IIO_ST_LSM6DSX_SPI_MODULE)
@@ -39,35 +40,16 @@ enum st_lsm6dsx_sensor_id {
 	ST_LSM6DSX_ID_MAX,
 };
 
-#define INCR(x, sz)			\
-	do {				\
-		(x)++;			\
-		(x) &= ((sz) - 1);	\
-	} while (0)
-
-#define ST_LSM6DSX_RING_SIZE	8
-#define ST_LSM6DSX_SAMPLE_SIZE	6
-
-struct st_lsm6dsx_sample {
-	u8 sample[ST_LSM6DSX_SAMPLE_SIZE];
-};
-
-struct st_lsm6dsx_ring {
-	u8 h_rb, t_rb;
-	struct st_lsm6dsx_sample data[ST_LSM6DSX_RING_SIZE];
-};
-
 struct st_lsm6dsx_sensor {
 	enum st_lsm6dsx_sensor_id id;
 	struct st_lsm6dsx_dev *dev;
 	struct iio_trigger *trig;
 
-	bool enabled;
 	u16 odr;
 	u32 gain;
 
-	struct mutex lock;
-	struct st_lsm6dsx_ring rdata;
+	u8 drdy_data_mask;
+	u8 drdy_irq_mask;
 };
 
 struct st_lsm6dsx_dev {
@@ -87,9 +69,9 @@ struct st_lsm6dsx_dev {
 
 int st_lsm6dsx_probe(struct st_lsm6dsx_dev *dev);
 int st_lsm6dsx_remove(struct st_lsm6dsx_dev *dev);
-int st_lsm6dsx_get_outdata(struct st_lsm6dsx_dev *dev);
 int st_lsm6dsx_set_enable(struct st_lsm6dsx_sensor *sensor, bool enable);
-int st_lsm6dsx_set_drdy_irq(struct st_lsm6dsx_sensor *sensor, bool enable);
+int st_lsm6dsx_write_with_mask(struct st_lsm6dsx_dev *dev, u8 addr, u8 mask,
+			       u8 val);
 #ifdef CONFIG_IIO_BUFFER
 int st_lsm6dsx_allocate_triggers(struct st_lsm6dsx_dev *dev);
 int st_lsm6dsx_deallocate_triggers(struct st_lsm6dsx_dev *dev);
