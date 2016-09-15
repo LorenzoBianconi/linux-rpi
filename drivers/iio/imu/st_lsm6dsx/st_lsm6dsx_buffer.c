@@ -40,6 +40,15 @@ static const struct iio_trigger_ops st_lsm6dsx_trigger_ops = {
 	.set_trigger_state = st_lsm6dsx_trig_set_state,
 };
 
+static irqreturn_t st_lsm6dsx_trigger_handler_th(int irq, void *private)
+{
+	struct st_lsm6dsx_dev *dev = (struct st_lsm6dsx_dev *)private;
+
+	dev->hw_timestamp = iio_get_time_ns();
+
+	return IRQ_WAKE_THREAD;
+}
+
 static irqreturn_t st_lsm6dsx_trigger_handler_bh(int irq, void *private)
 {
 	int i, err;
@@ -47,9 +56,11 @@ static irqreturn_t st_lsm6dsx_trigger_handler_bh(int irq, void *private)
 	struct st_lsm6dsx_sensor *sensor;
 	struct st_lsm6dsx_dev *dev = (struct st_lsm6dsx_dev *)private;
 
+	mutex_lock(&dev->lock);
+
 	err = dev->tf->read(dev->dev, REG_DATA_AVL_ADDR, 1, &avl_data);
 	if (err < 0)
-		return IRQ_HANDLED;
+		goto unlock;
 
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
 		sensor = iio_priv(dev->iio_devs[i]);
@@ -57,6 +68,9 @@ static irqreturn_t st_lsm6dsx_trigger_handler_bh(int irq, void *private)
 		if (avl_data & sensor->drdy_data_mask)
 			iio_trigger_poll_chained(sensor->trig);
 	}
+
+unlock:
+	mutex_unlock(&dev->lock);
 
 	return IRQ_HANDLED;
 }
@@ -68,7 +82,8 @@ int st_lsm6dsx_allocate_triggers(struct st_lsm6dsx_dev *dev)
 	unsigned long irq_type;
 
 	irq_type = irqd_get_trigger_type(irq_get_irq_data(dev->irq));
-	err = devm_request_threaded_irq(dev->dev, dev->irq, NULL,
+	err = devm_request_threaded_irq(dev->dev, dev->irq,
+					st_lsm6dsx_trigger_handler_th,
 					st_lsm6dsx_trigger_handler_bh,
 					irq_type | IRQF_ONESHOT,
 					dev->name, dev);
@@ -158,13 +173,10 @@ static irqreturn_t st_lsm6dsx_buffer_handler_bh(int irq, void *p)
 	struct st_lsm6dsx_dev *dev = sensor->dev;
 	u8 out_data[iio_dev->scan_bytes], buffer[ST_LSM6DSX_SAMPLE_SIZE];
 
-
-	mutex_lock(&dev->lock);
-
 	err = dev->tf->read(dev->dev, ch[0].address, ST_LSM6DSX_SAMPLE_SIZE,
 			    buffer);
 	if (err < 0)
-		goto unlock;
+		goto out;
 
 	for (i = 0; i < iio_dev->num_channels; i++) {
 		chan_byte = ch[i].scan_type.storagebits >> 3;
@@ -176,11 +188,9 @@ static irqreturn_t st_lsm6dsx_buffer_handler_bh(int irq, void *p)
 		in += chan_byte;
 	}
 
-	iio_push_to_buffers_with_timestamp(iio_dev, out_data, pf->timestamp);
+	iio_push_to_buffers_with_timestamp(iio_dev, out_data, dev->hw_timestamp);
 
-unlock:
-	mutex_unlock(&dev->lock);
-
+out:
 	iio_trigger_notify_done(sensor->trig);
 
 	return IRQ_HANDLED;
@@ -191,8 +201,7 @@ int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_dev *dev)
 	int i, err, count = 0;
 
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
-		err = iio_triggered_buffer_setup(dev->iio_devs[i],
-						 iio_pollfunc_store_time,
+		err = iio_triggered_buffer_setup(dev->iio_devs[i], NULL,
 						 st_lsm6dsx_buffer_handler_bh,
 						 &st_lsm6dsx_buffer_ops);
 		if (err < 0)
