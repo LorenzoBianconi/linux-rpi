@@ -23,7 +23,6 @@
 #define REG_CNTRL1_ADDR		0x20
 #define REG_CNTRL2_ADDR		0x21
 #define REG_CNTRL3_ADDR		0x22
-#define REG_STATUS_ADDR		0x27
 
 #define REG_H_AVG_ADDR		0x10
 #define REG_T_AVG_ADDR		0x10
@@ -211,54 +210,6 @@ int hts221_config_drdy(struct hts221_dev *dev, bool enable)
 	u8 val = (enable) ? 0x04 : 0;
 
 	return hts221_write_with_mask(dev, REG_CNTRL3_ADDR, DRDY_MASK, val);
-}
-
-bool hts221_parse_data(struct hts221_dev *dev)
-{
-	int err;
-	u8 status, data[2];
-	struct iio_dev *iio_dev;
-	struct hts221_sensor *sensor;
-
-	mutex_lock(&dev->lock);
-
-	err = dev->tf->read(dev->dev, REG_STATUS_ADDR, 1, &status);
-	if (err < 0) {
-		mutex_unlock(&dev->lock);
-		return err;
-	}
-
-	if (status & 0x01) {
-		iio_dev = dev->iio_devs[HTS221_SENSOR_T];
-		sensor = iio_priv(iio_dev);
-
-		err = dev->tf->read(dev->dev, REG_T_OUT_L, 2, data);
-		if (err < 0) {
-			dev_err(dev->dev, "failed to read reg %02x\n",
-				REG_T_OUT_L);
-			mutex_unlock(&dev->lock);
-			return err;
-		}
-		memcpy(sensor->buffer, data, sizeof(s16));
-	}
-
-	if (status & 0x02) {
-		iio_dev = dev->iio_devs[HTS221_SENSOR_H];
-		sensor = iio_priv(iio_dev);
-
-		err = dev->tf->read(dev->dev, REG_H_OUT_L, 2, data);
-		if (err < 0) {
-			dev_err(dev->dev, "failed to read reg %02x\n",
-				REG_H_OUT_L);
-			mutex_unlock(&dev->lock);
-			return err;
-		}
-		memcpy(sensor->buffer, data, sizeof(s16));
-	}
-
-	mutex_unlock(&dev->lock);
-
-	return 0;
 }
 
 static int hts221_update_odr(struct hts221_dev *dev, u8 odr)
@@ -610,7 +561,6 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 
 		*val = (s16)get_unaligned_le16(data);
 		ret = IIO_VAL_INT;
-
 		break;
 	}
 	case IIO_CHAN_INFO_SCALE: {
@@ -707,7 +657,7 @@ static const struct attribute_group hts221_t_attribute_group = {
 static const struct iio_info hts221_t_info = {
 	.driver_module = THIS_MODULE,
 	.attrs = &hts221_t_attribute_group,
-	.read_raw = &hts221_read_raw,
+	.read_raw = hts221_read_raw,
 };
 
 static struct iio_dev *hts221_alloc_iio_sensor(struct hts221_dev *dev,
@@ -716,7 +666,7 @@ static struct iio_dev *hts221_alloc_iio_sensor(struct hts221_dev *dev,
 	struct iio_dev *iio_dev;
 	struct hts221_sensor *sensor;
 
-	iio_dev = devm_iio_device_alloc(dev->dev, sizeof(*sensor));
+	iio_dev = iio_device_alloc(sizeof(*sensor));
 	if (!iio_dev)
 		return NULL;
 
@@ -734,12 +684,14 @@ static struct iio_dev *hts221_alloc_iio_sensor(struct hts221_dev *dev,
 		iio_dev->num_channels = ARRAY_SIZE(hts221_h_channels);
 		iio_dev->name = "hts221_rh";
 		iio_dev->info = &hts221_h_info;
+		sensor->drdy_data_mask = 0x02;
 		break;
 	case HTS221_SENSOR_T:
 		iio_dev->channels = hts221_t_channels;
 		iio_dev->num_channels = ARRAY_SIZE(hts221_t_channels);
 		iio_dev->name = "hts221_temp";
 		iio_dev->info = &hts221_t_info;
+		sensor->drdy_data_mask = 0x01;
 		break;
 	default:
 		iio_device_free(iio_dev);
@@ -782,19 +734,21 @@ int hts221_probe(struct hts221_dev *dev)
 			goto power_off;
 	}
 
+	err = hts221_dev_power_off(dev);
+	if (err < 0)
+		goto iio_device_free;
+
 	if (dev->irq > 0) {
 		err = hts221_allocate_buffers(dev);
 		if (err < 0)
-			goto power_off;
+			goto iio_device_free;
 
 		err = hts221_allocate_triggers(dev);
-		if (err)
-			goto power_off;
+		if (err) {
+			hts221_deallocate_buffers(dev);
+			goto iio_device_free;
+		}
 	}
-
-	err = hts221_dev_power_off(dev);
-	if (err < 0)
-		return err;
 
 	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
 		err = iio_device_register(dev->iio_devs[i]);
@@ -808,11 +762,12 @@ int hts221_probe(struct hts221_dev *dev)
 iio_register_err:
 	for (i = count - 1; i >= 0; i--)
 		iio_device_unregister(dev->iio_devs[i]);
-
-	return err;
-
 power_off:
 	hts221_dev_power_off(dev);
+iio_device_free:
+	for (i = 0; i < HTS221_SENSOR_MAX; i++)
+		if (dev->iio_devs[i])
+			iio_device_free(dev->iio_devs[i]);
 
 	return err;
 }
@@ -822,6 +777,8 @@ int hts221_remove(struct hts221_dev *dev)
 {
 	int i, err;
 
+	err = hts221_dev_power_off(dev);
+
 	for (i = 0; i < HTS221_SENSOR_MAX; i++)
 		iio_device_unregister(dev->iio_devs[i]);
 
@@ -830,11 +787,10 @@ int hts221_remove(struct hts221_dev *dev)
 		hts221_deallocate_buffers(dev);
 	}
 
-	err = hts221_dev_power_off(dev);
-	if (err < 0)
-		return err;
+	for (i = 0; i < HTS221_SENSOR_MAX; i++)
+		iio_device_free(dev->iio_devs[i]);
 
-	return 0;
+	return err;
 }
 EXPORT_SYMBOL(hts221_remove);
 

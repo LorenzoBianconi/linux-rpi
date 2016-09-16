@@ -97,7 +97,7 @@ static int hts221_spi_probe(struct spi_device *spi)
 		return err;
 	}
 
-	dev_info(&spi->dev, "hts221 spi sensor probed\n");
+	dev_info(&spi->dev, "sensor probed\n");
 
 	return 0;
 }
@@ -111,7 +111,7 @@ static int hts221_spi_remove(struct spi_device *spi)
 	if (err < 0)
 		return err;
 
-	dev_info(&spi->dev, "hts221 spi sensor removed\n");
+	dev_info(&spi->dev, "sensor removed\n");
 
 	return 0;
 }

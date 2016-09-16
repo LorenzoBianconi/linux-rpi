@@ -43,17 +43,17 @@ enum hts221_sensor_type {
 	HTS221_SENSOR_MAX,
 };
 
-#define IIO_BUFFER_DEPTH	16
 struct hts221_sensor {
+	struct hts221_dev *dev;
+	struct iio_trigger *trig;
+
+	enum hts221_sensor_type type;
 	bool enabled;
 	u8 odr, cur_avg_idx;
 	int slope, b_gen;
-	enum hts221_sensor_type type;
 
-	struct iio_trigger *trig;
-	u8 buffer[IIO_BUFFER_DEPTH];
-
-	struct hts221_dev *dev;
+	u8 drdy_data_mask;
+	u8 buffer[2];
 };
 
 struct hts221_dev {
@@ -64,6 +64,8 @@ struct hts221_dev {
 
 	struct iio_dev *iio_devs[HTS221_SENSOR_MAX];
 
+	s64 hw_timestamp;
+
 	const struct hts221_transfer_function *tf;
 #if defined(CONFIG_IIO_HTS221_SPI) || \
 	defined(CONFIG_IIO_HTS221_SPI_MODULE)
@@ -71,17 +73,7 @@ struct hts221_dev {
 #endif /* CONFIG_IIO_HTS221_SPI */
 };
 
-static inline s64 hts221_get_time_ns(void)
-{
-	struct timespec ts;
-
-	get_monotonic_boottime(&ts);
-
-	return timespec_to_ns(&ts);
-}
-
 int hts221_config_drdy(struct hts221_dev *dev, bool enable);
-bool hts221_parse_data(struct hts221_dev *dev);
 int hts221_probe(struct hts221_dev *dev);
 int hts221_remove(struct hts221_dev *dev);
 int hts221_sensor_power_on(struct hts221_sensor *sensor);

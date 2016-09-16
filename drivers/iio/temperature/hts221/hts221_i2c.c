@@ -23,6 +23,7 @@ static int hts221_i2c_read(struct device *dev, u8 addr, int len, u8 *data)
 
 	if (len > 1)
 		addr |= I2C_AUTO_INCREMENT;
+
 	msg[0].addr = client->addr;
 	msg[0].flags = client->flags;
 	msg[0].len = 1;
@@ -44,6 +45,7 @@ static int hts221_i2c_write(struct device *dev, u8 addr, int len, u8 *data)
 
 	if (len > 1)
 		addr |= I2C_AUTO_INCREMENT;
+
 	send[0] = addr;
 	memcpy(&send[1], data, len * sizeof(u8));
 
@@ -82,7 +84,7 @@ static int hts221_i2c_probe(struct i2c_client *client,
 		return err;
 	}
 
-	dev_info(&client->dev, "hts221 i2c sensor probed\n");
+	dev_info(&client->dev, "sensor probed\n");
 
 	return 0;
 }
@@ -96,7 +98,7 @@ static int hts221_i2c_remove(struct i2c_client *client)
 	if (err < 0)
 		return err;
 
-	dev_info(&client->dev, "hts221 i2c sensor removed\n");
+	dev_info(&client->dev, "sensor removed\n");
 
 	return 0;
 }
