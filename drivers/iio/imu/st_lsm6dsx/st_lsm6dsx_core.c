@@ -22,7 +22,6 @@
 #define REG_ACC_DRDY_IRQ_MASK	0x01
 #define REG_GYRO_DRDY_IRQ_MASK	0x02
 #define REG_WHOAMI_ADDR		0x0f
-#define REG_WHOAMI_VAL		0x69
 #define REG_RESET_ADDR		0x12
 #define REG_RESET_MASK		0x01
 #define REG_BDU_ADDR		0x12
@@ -49,6 +48,9 @@
 #define REG_GYRO_OUT_X_L_ADDR	0x22
 #define REG_GYRO_OUT_Y_L_ADDR	0x24
 #define REG_GYRO_OUT_Z_L_ADDR	0x26
+
+#define ST_LSM6DS3_WHOAMI	0x69
+#define ST_LSM6DSM_WHOAMI	0x6a
 
 #define ST_LSM6DSX_ACC_FS_2G_GAIN	IIO_G_TO_M_S_2(61)
 #define ST_LSM6DSX_ACC_FS_4G_GAIN	IIO_G_TO_M_S_2(122)
@@ -276,9 +278,9 @@ static int st_lsm6dsx_check_whoami(struct st_lsm6dsx_dev *dev)
 		return err;
 	}
 
-	if (data != REG_WHOAMI_VAL) {
-		dev_err(dev->dev, "wrong whoami {%02x-%02x}\n",
-			data, REG_WHOAMI_VAL);
+	if (data != ST_LSM6DS3_WHOAMI &&
+	    data != ST_LSM6DSM_WHOAMI) {
+		dev_err(dev->dev, "wrong whoami [%02x]\n", data);
 		return -ENODEV;
 	}
 
