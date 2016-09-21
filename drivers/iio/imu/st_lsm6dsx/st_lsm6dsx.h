@@ -15,6 +15,7 @@
 #include <linux/device.h>
 
 #define ST_LSM6DS3_DEV_NAME	"lsm6ds3"
+#define ST_LSM6DSM_DEV_NAME	"lsm6dsm"
 
 #define ST_LSM6DSX_SAMPLE_SIZE	6
 

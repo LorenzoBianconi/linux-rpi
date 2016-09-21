@@ -365,28 +365,35 @@ static int st_lsm6dsx_read_raw(struct iio_dev *iio_dev,
 		u8 data[2];
 		struct st_lsm6dsx_dev *dev;
 
-		if (iio_dev->currentmode == INDIO_BUFFER_TRIGGERED)
+		mutex_lock(&iio_dev->mlock);
+
+		if (iio_dev->currentmode == INDIO_BUFFER_TRIGGERED) {
+			mutex_unlock(&iio_dev->mlock);
 			return -EBUSY;
+		}
 
 		dev = sensor->dev;
 		err = st_lsm6dsx_set_enable(sensor, true);
-		if (err < 0)
+		if (err < 0) {
+			mutex_unlock(&iio_dev->mlock);
 			return err;
+		}
 
 		msleep(120);
 
-		mutex_lock(&dev->lock);
 		err = dev->tf->read(dev->dev, ch->address, 2, data);
 		if (err < 0) {
-			mutex_unlock(&dev->lock);
+			mutex_unlock(&iio_dev->mlock);
 			return err;
 		}
-		mutex_unlock(&dev->lock);
 
 		st_lsm6dsx_set_enable(sensor, false);
 
 		*val = (s16)get_unaligned_le16(data);
 		*val = *val >> ch->scan_type.shift;
+
+		mutex_unlock(&iio_dev->mlock);
+
 		return IIO_VAL_INT;
 	}
 	case IIO_CHAN_INFO_SCALE:
@@ -409,10 +416,15 @@ static int st_lsm6dsx_write_raw(struct iio_dev *iio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
-		if (iio_dev->currentmode == INDIO_BUFFER_TRIGGERED)
-			return -EBUSY;
+		mutex_lock(&iio_dev->mlock);
 
+		if (iio_dev->currentmode == INDIO_BUFFER_TRIGGERED) {
+			mutex_unlock(&iio_dev->mlock);
+			return -EBUSY;
+		}
 		err = st_lsm6dsx_set_fs(sensor, val2);
+
+		mutex_unlock(&iio_dev->mlock);
 		break;
 	default:
 		return -EINVAL;

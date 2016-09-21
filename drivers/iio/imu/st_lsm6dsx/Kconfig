@@ -1,6 +1,6 @@
 
 config IIO_ST_LSM6DSX
-	tristate "STMicroelectronics LSM6DSX sensor driver"
+	tristate "STMicroelectronics LSM6DS3/LSM6DSM sensor driver"
 	depends on (I2C || SPI) && SYSFS
 	select IIO_BUFFER
 	select IIO_TRIGGERED_BUFFER
@@ -8,7 +8,7 @@ config IIO_ST_LSM6DSX
 	select IIO_ST_LSM6DSX_SPI if (SPI_MASTER)
 	help
 	  Say yes here to build support for STMicroelectronics LSM6DSX imu
-	  sensor. Supported devices: lsm6ds3
+	  sensor. Supported devices: lsm6ds3, lsm6dsm
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called st_lsm6dsx.

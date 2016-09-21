@@ -9,6 +9,7 @@
  * Licensed under the GPL-2.
  */
 #include <linux/module.h>
+#include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
@@ -56,11 +57,9 @@ static irqreturn_t st_lsm6dsx_trigger_handler_bh(int irq, void *private)
 	struct st_lsm6dsx_sensor *sensor;
 	struct st_lsm6dsx_dev *dev = (struct st_lsm6dsx_dev *)private;
 
-	mutex_lock(&dev->lock);
-
 	err = dev->tf->read(dev->dev, REG_DATA_AVL_ADDR, 1, &avl_data);
 	if (err < 0)
-		goto unlock;
+		return IRQ_HANDLED;
 
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
 		sensor = iio_priv(dev->iio_devs[i]);
@@ -68,9 +67,6 @@ static irqreturn_t st_lsm6dsx_trigger_handler_bh(int irq, void *private)
 		if (avl_data & sensor->drdy_data_mask)
 			iio_trigger_poll_chained(sensor->trig);
 	}
-
-unlock:
-	mutex_unlock(&dev->lock);
 
 	return IRQ_HANDLED;
 }
@@ -82,6 +78,20 @@ int st_lsm6dsx_allocate_triggers(struct st_lsm6dsx_dev *dev)
 	unsigned long irq_type;
 
 	irq_type = irqd_get_trigger_type(irq_get_irq_data(dev->irq));
+
+	switch (irq_type) {
+	case IRQF_TRIGGER_HIGH:
+	case IRQF_TRIGGER_LOW:
+	case IRQF_TRIGGER_RISING:
+		break;
+	default:
+		dev_info(dev->dev,
+			 "mode %lx unsupported, use IRQF_TRIGGER_RISING\n",
+			 irq_type);
+		irq_type = IRQF_TRIGGER_RISING;
+		break;
+	}
+
 	err = devm_request_threaded_irq(dev->dev, dev->irq,
 					st_lsm6dsx_trigger_handler_th,
 					st_lsm6dsx_trigger_handler_bh,
