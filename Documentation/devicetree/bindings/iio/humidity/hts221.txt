@@ -1,0 +1,17 @@
+* HTS221 STM humidity/temperature sensor
+
+Required properties:
+- compatible: should be "st,hts221"
+
+Optional properties:
+- interrupts: interrupt mapping for IRQ
+- interrupt-parent: should be the phandle for the interrupt controller
+
+Example:
+
+hts221@5f {
+	compatible = "st,hts221";
+	reg = <0x5f>;
+	interrupt-parent = <&gpio0>;
+	interrupts = <0 IRQ_TYPE_EDGE_RISING>;
+};
