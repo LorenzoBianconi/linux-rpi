@@ -55,11 +55,9 @@ static irqreturn_t hts221_trigger_handler_bh(int irq, void *private)
 	struct iio_chan_spec const *ch;
 	struct hts221_dev *dev = (struct hts221_dev *)private;
 
-	mutex_lock(&dev->lock);
-
 	err = dev->tf->read(dev->dev, REG_STATUS_ADDR, 1, &status);
 	if (err < 0)
-		goto unlock;
+		return IRQ_HANDLED;
 
 	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
 		sensor = iio_priv(dev->iio_devs[i]);
@@ -75,9 +73,6 @@ static irqreturn_t hts221_trigger_handler_bh(int irq, void *private)
 		}
 	}
 
-unlock:
-	mutex_unlock(&dev->lock);
-
 	return IRQ_HANDLED;
 }
 
@@ -88,6 +83,19 @@ int hts221_allocate_triggers(struct hts221_dev *dev)
 	struct hts221_sensor *sensor;
 
 	irq_type = irqd_get_trigger_type(irq_get_irq_data(dev->irq));
+
+	switch (irq_type) {
+	case IRQF_TRIGGER_HIGH:
+	case IRQF_TRIGGER_RISING:
+		break;
+	default:
+		dev_info(dev->dev,
+			 "mode %lx unsupported, use IRQF_TRIGGER_RISING\n",
+			 irq_type);
+		irq_type = IRQF_TRIGGER_RISING;
+		break;
+	}
+
 	err = devm_request_threaded_irq(dev->dev, dev->irq,
 					hts221_trigger_handler_th,
 					hts221_trigger_handler_bh,

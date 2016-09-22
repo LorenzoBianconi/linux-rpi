@@ -168,6 +168,7 @@ static int hts221_write_with_mask(struct hts221_dev *dev, u8 addr, u8 mask,
 	if (err < 0) {
 		dev_err(dev->dev, "failed to read %02x register\n", addr);
 		mutex_unlock(&dev->lock);
+
 		return err;
 	}
 
@@ -177,6 +178,7 @@ static int hts221_write_with_mask(struct hts221_dev *dev, u8 addr, u8 mask,
 	if (err < 0) {
 		dev_err(dev->dev, "failed to write %02x register\n", addr);
 		mutex_unlock(&dev->lock);
+
 		return err;
 	}
 
@@ -401,30 +403,9 @@ int hts221_sensor_power_on(struct hts221_sensor *sensor)
 
 static int hts221_dev_power_off(struct hts221_dev *dev)
 {
-	int err;
-	u8 data = 0;
+	u8 data[] = {0x00, 0x00};
 
-	mutex_lock(&dev->lock);
-
-	err = dev->tf->write(dev->dev, REG_CNTRL1_ADDR, 1, &data);
-	if (err < 0) {
-		dev_err(dev->dev, "failed to write %02x register\n",
-			REG_CNTRL1_ADDR);
-		mutex_unlock(&dev->lock);
-		return err;
-	}
-
-	err = dev->tf->write(dev->dev, REG_CNTRL2_ADDR, 1, &data);
-	if (err < 0) {
-		dev_err(dev->dev, "failed to write %02x register\n",
-			REG_CNTRL2_ADDR);
-		mutex_unlock(&dev->lock);
-		return err;
-	}
-
-	mutex_unlock(&dev->lock);
-
-	return 0;
+	return dev->tf->write(dev->dev, REG_CNTRL1_ADDR, 2, data);
 }
 
 int hts221_sensor_power_off(struct hts221_sensor *sensor)
@@ -536,31 +517,36 @@ static int hts221_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_RAW: {
 		u8 data[2];
 
-		if (indio_dev->currentmode == INDIO_BUFFER_TRIGGERED)
+		mutex_lock(&indio_dev->mlock);
+		if (indio_dev->currentmode == INDIO_BUFFER_TRIGGERED) {
+			mutex_unlock(&indio_dev->mlock);
 			return -EBUSY;
+		}
 
 		ret = hts221_sensor_power_on(sensor);
-		if (ret < 0)
+		if (ret < 0) {
+			mutex_unlock(&indio_dev->mlock);
 			return ret;
+		}
 
 		msleep(50);
 
-		mutex_lock(&dev->lock);
 		ret = dev->tf->read(dev->dev, ch->address, 2, data);
 		if (ret < 0) {
-			mutex_unlock(&dev->lock);
+			mutex_unlock(&indio_dev->mlock);
 			return ret;
 		}
-		mutex_unlock(&dev->lock);
 
 		ret = hts221_sensor_power_off(sensor);
 		if (ret < 0) {
-			mutex_unlock(&dev->lock);
+			mutex_unlock(&indio_dev->mlock);
 			return ret;
 		}
 
 		*val = (s16)get_unaligned_le16(data);
 		ret = IIO_VAL_INT;
+		mutex_unlock(&indio_dev->mlock);
+
 		break;
 	}
 	case IIO_CHAN_INFO_SCALE: {
