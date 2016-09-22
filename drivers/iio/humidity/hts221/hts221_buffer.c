@@ -30,7 +30,7 @@ int hts221_trig_set_state(struct iio_trigger *trig, bool state)
 	struct iio_dev *indio_dev = iio_trigger_get_drvdata(trig);
 	struct hts221_sensor *sensor = iio_priv(indio_dev);
 
-	return hts221_config_drdy(sensor->dev, state);
+	return hts221_config_drdy(sensor, state);
 }
 
 static const struct iio_trigger_ops hts221_trigger_ops = {

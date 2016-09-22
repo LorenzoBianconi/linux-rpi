@@ -73,7 +73,7 @@ struct hts221_dev {
 #endif /* CONFIG_IIO_HTS221_SPI */
 };
 
-int hts221_config_drdy(struct hts221_dev *dev, bool enable);
+int hts221_config_drdy(struct hts221_sensor *sensor, bool enable);
 int hts221_probe(struct hts221_dev *dev);
 int hts221_remove(struct hts221_dev *dev);
 int hts221_sensor_power_on(struct hts221_sensor *sensor);

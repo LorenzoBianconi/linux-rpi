@@ -207,11 +207,30 @@ static int hts221_check_whoami(struct hts221_dev *dev)
 	return 0;
 }
 
-int hts221_config_drdy(struct hts221_dev *dev, bool enable)
+int hts221_config_drdy(struct hts221_sensor *sensor, bool enable)
 {
-	u8 val = (enable) ? 0x04 : 0;
+	int i;
+	struct hts221_sensor *cur_sensor;
+	struct hts221_dev *dev = sensor->dev;
 
-	return hts221_write_with_mask(dev, REG_CNTRL3_ADDR, DRDY_MASK, val);
+	for (i = 0; i < HTS221_SENSOR_MAX; i++) {
+		cur_sensor = iio_priv(dev->iio_devs[i]);
+
+		if (cur_sensor == sensor)
+			continue;
+
+		if (!cur_sensor->enabled)
+			break;
+	}
+
+	if (i < HTS221_SENSOR_MAX) {
+		u8 val = (enable) ? 0x04 : 0;
+
+		return hts221_write_with_mask(dev, REG_CNTRL3_ADDR,
+					      DRDY_MASK, val);
+	} else {
+		return 0;
+	}
 }
 
 static int hts221_update_odr(struct hts221_dev *dev, u8 odr)
