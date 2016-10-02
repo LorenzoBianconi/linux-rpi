@@ -65,51 +65,37 @@ static const struct hts221_transfer_function hts221_transfer_fn = {
 static int hts221_i2c_probe(struct i2c_client *client,
 			    const struct i2c_device_id *id)
 {
-	int err;
 	struct hts221_dev *dev;
+	struct iio_dev *iio_dev;
 
-	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-	if (!dev)
+	iio_dev = devm_iio_device_alloc(&client->dev, sizeof(*dev));
+	if (!iio_dev)
 		return -ENOMEM;
 
-	i2c_set_clientdata(client, dev);
+	i2c_set_clientdata(client, iio_dev);
+
+	dev = iio_priv(iio_dev);
 	dev->name = client->name;
 	dev->dev = &client->dev;
 	dev->irq = client->irq;
 	dev->tf = &hts221_transfer_fn;
 
-	err = hts221_probe(dev);
-	if (err < 0) {
-		kfree(dev);
-		return err;
-	}
-
-	dev_info(&client->dev, "sensor probed\n");
-
-	return 0;
+	return hts221_probe(dev);
 }
 
 static int hts221_i2c_remove(struct i2c_client *client)
 {
-	int err;
-	struct hts221_dev *dev = i2c_get_clientdata(client);
+	struct iio_dev *iio_dev = i2c_get_clientdata(client);
+	struct hts221_dev *dev = iio_priv(iio_dev);
 
-	err = hts221_remove(dev);
-	if (err < 0)
-		return err;
-
-	dev_info(&client->dev, "sensor removed\n");
-
-	return 0;
+	return hts221_remove(dev);
 }
 
-#ifdef CONFIG_OF
 static const struct of_device_id hts221_i2c_of_match[] = {
 	{ .compatible = "st,hts221", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, hts221_i2c_of_match);
-#endif /* CONFIG_OF */
 
 static const struct i2c_device_id hts221_i2c_id_table[] = {
 	{ HTS221_DEV_NAME },
@@ -120,9 +106,7 @@ MODULE_DEVICE_TABLE(i2c, hts221_i2c_id_table);
 static struct i2c_driver hts221_driver = {
 	.driver = {
 		.name = "hts221_i2c",
-#ifdef CONFIG_OF
-		.of_match_table = hts221_i2c_of_match,
-#endif /* CONFIG_OF */
+		.of_match_table = of_match_ptr(hts221_i2c_of_match),
 	},
 	.probe = hts221_i2c_probe,
 	.remove = hts221_i2c_remove,

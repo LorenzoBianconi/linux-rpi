@@ -15,8 +15,6 @@
 
 #include <linux/iio/iio.h>
 
-#if defined(CONFIG_IIO_HTS221_SPI) || \
-	defined(CONFIG_IIO_HTS221_SPI_MODULE)
 #define HTS221_RX_MAX_LENGTH	500
 #define HTS221_TX_MAX_LENGTH	500
 
@@ -24,7 +22,6 @@ struct hts221_transfer_buffer {
 	u8 rx_buf[HTS221_RX_MAX_LENGTH];
 	u8 tx_buf[HTS221_TX_MAX_LENGTH] ____cacheline_aligned;
 };
-#endif /* CONFIG_IIO_HTS221_SPI */
 
 struct hts221_transfer_function {
 	int (*read)(struct device *dev, u8 addr, int len, u8 *data);
@@ -45,39 +42,36 @@ enum hts221_sensor_type {
 
 struct hts221_sensor {
 	struct hts221_dev *dev;
-	struct iio_trigger *trig;
 
 	enum hts221_sensor_type type;
-	bool enabled;
-	u8 odr, cur_avg_idx;
+	u8 cur_avg_idx;
 	int slope, b_gen;
-
-	u8 drdy_data_mask;
-	u8 buffer[2];
 };
 
 struct hts221_dev {
 	const char *name;
 	struct device *dev;
-	int irq;
+
 	struct mutex lock;
 
-	struct iio_dev *iio_devs[HTS221_SENSOR_MAX];
+	u8 buffer[4];
+	struct iio_trigger *trig;
+	int irq;
+
+	struct hts221_sensor sensors[HTS221_SENSOR_MAX];
 
 	s64 hw_timestamp;
+	u8 odr;
 
 	const struct hts221_transfer_function *tf;
-#if defined(CONFIG_IIO_HTS221_SPI) || \
-	defined(CONFIG_IIO_HTS221_SPI_MODULE)
 	struct hts221_transfer_buffer tb;
-#endif /* CONFIG_IIO_HTS221_SPI */
 };
 
-int hts221_config_drdy(struct hts221_sensor *sensor, bool enable);
+int hts221_config_drdy(struct hts221_dev *dev, bool enable);
 int hts221_probe(struct hts221_dev *dev);
 int hts221_remove(struct hts221_dev *dev);
-int hts221_sensor_power_on(struct hts221_sensor *sensor);
-int hts221_sensor_power_off(struct hts221_sensor *sensor);
+int hts221_dev_power_on(struct hts221_dev *dev);
+int hts221_dev_power_off(struct hts221_dev *dev);
 #ifdef CONFIG_IIO_BUFFER
 int hts221_allocate_buffers(struct hts221_dev *dev);
 void hts221_deallocate_buffers(struct hts221_dev *dev);

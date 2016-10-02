@@ -21,7 +21,8 @@ static int hts221_spi_read(struct device *device, u8 addr, int len, u8 *data)
 {
 	int err;
 	struct spi_device *spi = to_spi_device(device);
-	struct hts221_dev *dev = spi_get_drvdata(spi);
+	struct iio_dev *iio_dev = spi_get_drvdata(spi);
+	struct hts221_dev *dev = iio_priv(iio_dev);
 
 	struct spi_transfer xfers[] = {
 		{
@@ -52,7 +53,8 @@ static int hts221_spi_read(struct device *device, u8 addr, int len, u8 *data)
 static int hts221_spi_write(struct device *device, u8 addr, int len, u8 *data)
 {
 	struct spi_device *spi = to_spi_device(device);
-	struct hts221_dev *dev = spi_get_drvdata(spi);
+	struct iio_dev *iio_dev = spi_get_drvdata(spi);
+	struct hts221_dev *dev = iio_priv(iio_dev);
 
 	struct spi_transfer xfers = {
 		.tx_buf = dev->tb.tx_buf,
@@ -78,51 +80,37 @@ static const struct hts221_transfer_function hts221_transfer_fn = {
 
 static int hts221_spi_probe(struct spi_device *spi)
 {
-	int err;
 	struct hts221_dev *dev;
+	struct iio_dev *iio_dev;
 
-	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-	if (!dev)
+	iio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*dev));
+	if (!iio_dev)
 		return -ENOMEM;
 
-	spi_set_drvdata(spi, dev);
+	spi_set_drvdata(spi, iio_dev);
+
+	dev = iio_priv(iio_dev);
 	dev->name = spi->modalias;
 	dev->dev = &spi->dev;
 	dev->irq = spi->irq;
 	dev->tf = &hts221_transfer_fn;
 
-	err = hts221_probe(dev);
-	if (err < 0) {
-		kfree(dev);
-		return err;
-	}
-
-	dev_info(&spi->dev, "sensor probed\n");
-
-	return 0;
+	return hts221_probe(dev);
 }
 
 static int hts221_spi_remove(struct spi_device *spi)
 {
-	int err;
-	struct hts221_dev *dev = spi_get_drvdata(spi);
+	struct iio_dev *iio_dev = spi_get_drvdata(spi);
+	struct hts221_dev *dev = iio_priv(iio_dev);
 
-	err = hts221_remove(dev);
-	if (err < 0)
-		return err;
-
-	dev_info(&spi->dev, "sensor removed\n");
-
-	return 0;
+	return hts221_remove(dev);
 }
 
-#ifdef CONFIG_OF
 static const struct of_device_id hts221_spi_of_match[] = {
 	{ .compatible = "st,hts221", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, hts221_spi_of_match);
-#endif /* CONFIG_OF */
 
 static const struct spi_device_id hts221_spi_id_table[] = {
 	{ HTS221_DEV_NAME },
@@ -133,9 +121,7 @@ MODULE_DEVICE_TABLE(spi, hts221_spi_id_table);
 static struct spi_driver hts221_driver = {
 	.driver = {
 		.name = "hts221_spi",
-#ifdef CONFIG_OF
-		.of_match_table = hts221_spi_of_match,
-#endif /* CONFIG_OF */
+		.of_match_table = of_match_ptr(hts221_spi_of_match),
 	},
 	.probe = hts221_spi_probe,
 	.remove = hts221_spi_remove,
