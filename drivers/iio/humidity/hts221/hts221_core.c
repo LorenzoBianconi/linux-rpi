@@ -24,40 +24,39 @@
 #define HTS221_REG_CNTRL2_ADDR		0x21
 #define HTS221_REG_CNTRL3_ADDR		0x22
 
-#define HTS221_REG_H_AVG_ADDR		0x10
-#define HTS221_REG_T_AVG_ADDR		0x10
+#define HTS221_REG_AVG_ADDR		0x10
 #define HTS221_REG_H_OUT_L		0x28
 #define HTS221_REG_T_OUT_L		0x2a
 
-#define HTS221_H_AVG_MASK		0x07
-#define HTS221_T_AVG_MASK		0x38
+#define HTS221_HUMIDITY_AVG_MASK	0x07
+#define HTS221_TEMP_AVG_MASK		0x38
 
-#define ODR_MASK			0x87
-#define BDU_MASK			0x04
+#define HTS221_ODR_MASK			0x87
+#define HTS221_BDU_MASK			BIT(2)
 
-#define DRDY_MASK			0x04
+#define HTS221_DRDY_MASK		BIT(2)
 
-#define ENABLE_SENSOR			0x80
+#define HTS221_ENABLE_SENSOR		BIT(7)
 
-#define HTS221_H_AVG_4			0x00 /* 0.4 %RH */
-#define HTS221_H_AVG_8			0x01 /* 0.3 %RH */
-#define HTS221_H_AVG_16			0x02 /* 0.2 %RH */
-#define HTS221_H_AVG_32			0x03 /* 0.15 %RH */
-#define HTS221_H_AVG_64			0x04 /* 0.1 %RH */
-#define HTS221_H_AVG_128		0x05 /* 0.07 %RH */
-#define HTS221_H_AVG_256		0x06 /* 0.05 %RH */
-#define HTS221_H_AVG_512		0x07 /* 0.03 %RH */
+#define HTS221_HUMIDITY_AVG_4		0x00 /* 0.4 %RH */
+#define HTS221_HUMIDITY_AVG_8		0x01 /* 0.3 %RH */
+#define HTS221_HUMIDITY_AVG_16		0x02 /* 0.2 %RH */
+#define HTS221_HUMIDITY_AVG_32		0x03 /* 0.15 %RH */
+#define HTS221_HUMIDITY_AVG_64		0x04 /* 0.1 %RH */
+#define HTS221_HUMIDITY_AVG_128		0x05 /* 0.07 %RH */
+#define HTS221_HUMIDITY_AVG_256		0x06 /* 0.05 %RH */
+#define HTS221_HUMIDITY_AVG_512		0x07 /* 0.03 %RH */
 
-#define HTS221_T_AVG_2			0x00 /* 0.08 degC */
-#define HTS221_T_AVG_4			0x08 /* 0.05 degC */
-#define HTS221_T_AVG_8			0x10 /* 0.04 degC */
-#define HTS221_T_AVG_16			0x18 /* 0.03 degC */
-#define HTS221_T_AVG_32			0x20 /* 0.02 degC */
-#define HTS221_T_AVG_64			0x28 /* 0.015 degC */
-#define HTS221_T_AVG_128		0x30 /* 0.01 degC */
-#define HTS221_T_AVG_256		0x38 /* 0.007 degC */
+#define HTS221_TEMP_AVG_2		0x00 /* 0.08 degC */
+#define HTS221_TEMP_AVG_4		0x08 /* 0.05 degC */
+#define HTS221_TEMP_AVG_8		0x10 /* 0.04 degC */
+#define HTS221_TEMP_AVG_16		0x18 /* 0.03 degC */
+#define HTS221_TEMP_AVG_32		0x20 /* 0.02 degC */
+#define HTS221_TEMP_AVG_64		0x28 /* 0.015 degC */
+#define HTS221_TEMP_AVG_128		0x30 /* 0.01 degC */
+#define HTS221_TEMP_AVG_256		0x38 /* 0.007 degC */
 
-/* caldata registers */
+/* calibration registers */
 #define HTS221_REG_0RH_CAL_X_H		0x36
 #define HTS221_REG_1RH_CAL_X_H		0x3a
 #define HTS221_REG_0RH_CAL_Y_H		0x30
@@ -82,36 +81,36 @@ struct hts221_avg {
 static const struct hts221_odr hts221_odr_table[] = {
 	{ 1, 0x01 },	/* 1Hz */
 	{ 7, 0x02 },	/* 7Hz */
-	{ 13, 0x03 },	/* 12.5 HZ */
+	{ 13, 0x03 },	/* 12.5Hz */
 };
 
 static const struct hts221_avg hts221_avg_list[] = {
 	{
-		.addr = HTS221_REG_H_AVG_ADDR,
-		.mask = HTS221_H_AVG_MASK,
+		.addr = HTS221_REG_AVG_ADDR,
+		.mask = HTS221_HUMIDITY_AVG_MASK,
 		.avg_avl = {
-			{ 4, HTS221_H_AVG_4 },
-			{ 8, HTS221_H_AVG_8 },
-			{ 16, HTS221_H_AVG_16 },
-			{ 32, HTS221_H_AVG_32 },
-			{ 64, HTS221_H_AVG_64 },
-			{ 128, HTS221_H_AVG_128 },
-			{ 256, HTS221_H_AVG_256 },
-			{ 512, HTS221_H_AVG_512 },
+			{ 4, HTS221_HUMIDITY_AVG_4 },
+			{ 8, HTS221_HUMIDITY_AVG_8 },
+			{ 16, HTS221_HUMIDITY_AVG_16 },
+			{ 32, HTS221_HUMIDITY_AVG_32 },
+			{ 64, HTS221_HUMIDITY_AVG_64 },
+			{ 128, HTS221_HUMIDITY_AVG_128 },
+			{ 256, HTS221_HUMIDITY_AVG_256 },
+			{ 512, HTS221_HUMIDITY_AVG_512 },
 		},
 	},
 	{
-		.addr = HTS221_REG_T_AVG_ADDR,
-		.mask = HTS221_T_AVG_MASK,
+		.addr = HTS221_REG_AVG_ADDR,
+		.mask = HTS221_TEMP_AVG_MASK,
 		.avg_avl = {
-			{ 2, HTS221_T_AVG_2 },
-			{ 4, HTS221_T_AVG_4 },
-			{ 8, HTS221_T_AVG_8 },
-			{ 16, HTS221_T_AVG_16 },
-			{ 32, HTS221_T_AVG_32 },
-			{ 64, HTS221_T_AVG_64 },
-			{ 128, HTS221_T_AVG_128 },
-			{ 256, HTS221_T_AVG_256 },
+			{ 2, HTS221_TEMP_AVG_2 },
+			{ 4, HTS221_TEMP_AVG_4 },
+			{ 8, HTS221_TEMP_AVG_8 },
+			{ 16, HTS221_TEMP_AVG_16 },
+			{ 32, HTS221_TEMP_AVG_32 },
+			{ 64, HTS221_TEMP_AVG_64 },
+			{ 128, HTS221_TEMP_AVG_128 },
+			{ 256, HTS221_TEMP_AVG_256 },
 		},
 	},
 };
@@ -160,7 +159,7 @@ static int hts221_write_with_mask(struct hts221_dev *dev, u8 addr, u8 mask,
 
 	mutex_lock(&dev->lock);
 
-	err = dev->tf->read(dev->dev, addr, 1, &data);
+	err = dev->tf->read(dev->dev, addr, sizeof(data), &data);
 	if (err < 0) {
 		dev_err(dev->dev, "failed to read %02x register\n", addr);
 		mutex_unlock(&dev->lock);
@@ -170,7 +169,7 @@ static int hts221_write_with_mask(struct hts221_dev *dev, u8 addr, u8 mask,
 
 	data = (data & ~mask) | (val & mask);
 
-	err = dev->tf->write(dev->dev, addr, 1, &data);
+	err = dev->tf->write(dev->dev, addr, sizeof(data), &data);
 	if (err < 0) {
 		dev_err(dev->dev, "failed to write %02x register\n", addr);
 		mutex_unlock(&dev->lock);
@@ -188,14 +187,15 @@ static int hts221_check_whoami(struct hts221_dev *dev)
 	u8 data;
 	int err;
 
-	err = dev->tf->read(dev->dev, HTS221_REG_WHOAMI_ADDR, 1, &data);
+	err = dev->tf->read(dev->dev, HTS221_REG_WHOAMI_ADDR, sizeof(data),
+			    &data);
 	if (err < 0) {
 		dev_err(dev->dev, "failed to read whoami register\n");
 		return err;
 	}
 
 	if (data != HTS221_REG_WHOAMI_VAL) {
-		dev_err(dev->dev, "wrong whoami {%02x-%02x}\n",
+		dev_err(dev->dev, "wrong whoami {%02x vs %02x}\n",
 			data, HTS221_REG_WHOAMI_VAL);
 		return -ENODEV;
 	}
@@ -205,15 +205,16 @@ static int hts221_check_whoami(struct hts221_dev *dev)
 
 int hts221_config_drdy(struct hts221_dev *dev, bool enable)
 {
-	u8 val = (enable) ? 0x04 : 0;
+	u8 val = enable ? BIT(2) : 0;
 
 	return hts221_write_with_mask(dev, HTS221_REG_CNTRL3_ADDR,
-				      DRDY_MASK, val);
+				      HTS221_DRDY_MASK, val);
 }
 
 static int hts221_update_odr(struct hts221_dev *dev, u8 odr)
 {
 	int i, err;
+	u8 val;
 
 	for (i = 0; i < ARRAY_SIZE(hts221_odr_table); i++)
 		if (hts221_odr_table[i].hz == odr)
@@ -222,9 +223,9 @@ static int hts221_update_odr(struct hts221_dev *dev, u8 odr)
 	if (i == ARRAY_SIZE(hts221_odr_table))
 		return -EINVAL;
 
-	err = hts221_write_with_mask(dev, HTS221_REG_CNTRL1_ADDR, ODR_MASK,
-				     ENABLE_SENSOR | BDU_MASK |
-				     hts221_odr_table[i].val);
+	val = HTS221_ENABLE_SENSOR | HTS221_BDU_MASK | hts221_odr_table[i].val;
+	err = hts221_write_with_mask(dev, HTS221_REG_CNTRL1_ADDR,
+				     HTS221_ODR_MASK, val);
 	if (err < 0)
 		return err;
 
@@ -275,7 +276,7 @@ hts221_sysfs_rh_oversampling_avail(struct device *dev,
 				   struct device_attribute *attr,
 				   char *buf)
 {
-	struct hts221_avg const *avg = &hts221_avg_list[HTS221_SENSOR_H];
+	const struct hts221_avg *avg = &hts221_avg_list[HTS221_SENSOR_H];
 	ssize_t len = 0;
 	int i;
 
@@ -292,7 +293,7 @@ hts221_sysfs_temp_oversampling_avail(struct device *dev,
 				     struct device_attribute *attr,
 				     char *buf)
 {
-	struct hts221_avg const *avg = &hts221_avg_list[HTS221_SENSOR_T];
+	const struct hts221_avg *avg = &hts221_avg_list[HTS221_SENSOR_T];
 	ssize_t len = 0;
 	int i;
 
@@ -329,7 +330,8 @@ int hts221_dev_power_off(struct hts221_dev *dev)
 {
 	u8 data[] = {0x00, 0x00};
 
-	return dev->tf->write(dev->dev, HTS221_REG_CNTRL1_ADDR, 2, data);
+	return dev->tf->write(dev->dev, HTS221_REG_CNTRL1_ADDR, sizeof(data),
+			      data);
 }
 
 static int hts221_parse_caldata(struct hts221_sensor *sensor)
@@ -340,64 +342,70 @@ static int hts221_parse_caldata(struct hts221_sensor *sensor)
 	struct hts221_dev *dev = sensor->dev;
 
 	switch (sensor->type) {
-	case HTS221_SENSOR_H:
+	case HTS221_SENSOR_H: {
+		u8 data;
+
 		addr_x0 = HTS221_REG_0RH_CAL_X_H;
 		addr_x1 = HTS221_REG_1RH_CAL_X_H;
-
 		cal_y1 = 0;
 		cal_y0 = 0;
-		err = dev->tf->read(dev->dev, HTS221_REG_0RH_CAL_Y_H, 1,
-				    (u8 *)&cal_y0);
-		if (err < 0)
-			return err;
 
-		err = dev->tf->read(dev->dev, HTS221_REG_1RH_CAL_Y_H, 1,
-				    (u8 *)&cal_y1);
+		err = dev->tf->read(dev->dev, HTS221_REG_0RH_CAL_Y_H,
+				    sizeof(data), &data);
 		if (err < 0)
 			return err;
+		cal_y0 = data;
+
+		err = dev->tf->read(dev->dev, HTS221_REG_1RH_CAL_Y_H,
+				    sizeof(data), &data);
+		if (err < 0)
+			return err;
+		cal_y1 = data;
+
 		break;
+	}
 	case HTS221_SENSOR_T: {
 		u8 cal0, cal1;
 
 		addr_x0 = HTS221_REG_0T_CAL_X_L;
 		addr_x1 = HTS221_REG_1T_CAL_X_L;
 
-		err = dev->tf->read(dev->dev, HTS221_REG_0T_CAL_Y_H, 1,
-				    &cal0);
+		err = dev->tf->read(dev->dev, HTS221_REG_0T_CAL_Y_H,
+				    sizeof(cal0), &cal0);
 		if (err < 0)
 			return err;
 
-		err = dev->tf->read(dev->dev, HTS221_REG_T1_T0_CAL_Y_H, 1,
-				    &cal1);
+		err = dev->tf->read(dev->dev, HTS221_REG_T1_T0_CAL_Y_H,
+				    sizeof(cal1), &cal1);
 		if (err < 0)
 			return err;
 		cal_y0 = (le16_to_cpu(cal1 & 0x3) << 8) | cal0;
 
-		err = dev->tf->read(dev->dev, HTS221_REG_1T_CAL_Y_H, 1,
-				    &cal0);
+		err = dev->tf->read(dev->dev, HTS221_REG_1T_CAL_Y_H,
+				    sizeof(cal0), &cal0);
 		if (err < 0)
 			return err;
 
-		err = dev->tf->read(dev->dev, HTS221_REG_T1_T0_CAL_Y_H, 1,
-				    &cal1);
+		err = dev->tf->read(dev->dev, HTS221_REG_T1_T0_CAL_Y_H,
+				    sizeof(cal1), &cal1);
 		if (err < 0)
 			return err;
-		cal_y1 = (le16_to_cpu((cal1 & 0xc) >> 2) << 8) | cal0;
+		cal_y1 = (((cal1 & 0xc) >> 2) << 8) | cal0;
 		break;
 	}
 	default:
 		return -ENODEV;
 	}
 
-	err = dev->tf->read(dev->dev, addr_x0, 2, (u8 *)&cal_x0);
+	err = dev->tf->read(dev->dev, addr_x0, sizeof(cal_x0), (u8 *)&cal_x0);
 	if (err < 0)
 		return err;
-	cal_x0 = le32_to_cpu(cal_x0);
+	cal_x0 = le16_to_cpu(cal_x0);
 
-	err = dev->tf->read(dev->dev, addr_x1, 2, (u8 *)&cal_x1);
+	err = dev->tf->read(dev->dev, addr_x1, sizeof(cal_x1), (u8 *)&cal_x1);
 	if (err < 0)
 		return err;
-	cal_x1 = le32_to_cpu(cal_x1);
+	cal_x1 = le16_to_cpu(cal_x1);
 
 	slope = &sensor->slope;
 	b_gen = &sensor->b_gen;
@@ -423,7 +431,7 @@ static int hts221_read_raw(struct iio_dev *iio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW: {
-		u8 data[2];
+		u8 data[HTS221_DATA_SIZE];
 
 		ret = hts221_dev_power_on(dev);
 		if (ret < 0)
@@ -431,7 +439,7 @@ static int hts221_read_raw(struct iio_dev *iio_dev,
 
 		msleep(50);
 
-		ret = dev->tf->read(dev->dev, ch->address, 2, data);
+		ret = dev->tf->read(dev->dev, ch->address, sizeof(data), data);
 		if (ret < 0)
 			goto out;
 
@@ -500,7 +508,7 @@ static int hts221_read_raw(struct iio_dev *iio_dev,
 		break;
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO: {
 		u8 idx;
-		struct hts221_avg const *avg;
+		const struct hts221_avg *avg;
 
 		switch (ch->type) {
 		case IIO_HUMIDITYRELATIVE:
@@ -667,9 +675,6 @@ EXPORT_SYMBOL(hts221_probe);
 int hts221_remove(struct hts221_dev *dev)
 {
 	struct iio_dev *iio_dev = iio_priv_to_dev(dev);
-	int err;
-
-	err = hts221_dev_power_off(dev);
 
 	iio_device_unregister(iio_dev);
 
@@ -678,7 +683,7 @@ int hts221_remove(struct hts221_dev *dev)
 		hts221_deallocate_buffers(dev);
 	}
 
-	return err;
+	return hts221_dev_power_off(dev);
 }
 EXPORT_SYMBOL(hts221_remove);
 

@@ -24,10 +24,10 @@
 #include "hts221.h"
 
 #define HTS221_REG_STATUS_ADDR		0x27
-#define HTS221_RH_DRDY_MASK		0x2
-#define HTS221_TEMP_DRDY_MASK		0x1
+#define HTS221_RH_DRDY_MASK		BIT(1)
+#define HTS221_TEMP_DRDY_MASK		BIT(0)
 
-int hts221_trig_set_state(struct iio_trigger *trig, bool state)
+static int hts221_trig_set_state(struct iio_trigger *trig, bool state)
 {
 	struct iio_dev *iio_dev = iio_trigger_get_drvdata(trig);
 	struct hts221_dev *dev = iio_priv(iio_dev);
@@ -57,14 +57,15 @@ static irqreturn_t hts221_trigger_handler_thread(int irq, void *private)
 	int err, count = 0;
 	u8 status;
 
-	err = dev->tf->read(dev->dev, HTS221_REG_STATUS_ADDR, 1, &status);
+	err = dev->tf->read(dev->dev, HTS221_REG_STATUS_ADDR, sizeof(status),
+			    &status);
 	if (err < 0)
 		return IRQ_HANDLED;
 
 	/* humidity data */
 	if (status & HTS221_RH_DRDY_MASK) {
 		ch = &iio_dev->channels[HTS221_SENSOR_H];
-		err = dev->tf->read(dev->dev, ch->address, 2,
+		err = dev->tf->read(dev->dev, ch->address, HTS221_DATA_SIZE,
 				    dev->buffer);
 		if (err < 0)
 			return IRQ_HANDLED;
@@ -72,10 +73,10 @@ static irqreturn_t hts221_trigger_handler_thread(int irq, void *private)
 		count++;
 	}
 
-	/* temp data */
+	/* temperature data */
 	if (status & HTS221_TEMP_DRDY_MASK) {
 		ch = &iio_dev->channels[HTS221_SENSOR_T];
-		err = dev->tf->read(dev->dev, ch->address, 2,
+		err = dev->tf->read(dev->dev, ch->address, HTS221_DATA_SIZE,
 				    dev->buffer + 2 * count);
 		if (err < 0)
 			return IRQ_HANDLED;
@@ -162,12 +163,9 @@ static irqreturn_t hts221_buffer_handler_thread(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *iio_dev = pf->indio_dev;
 	struct hts221_dev *dev = iio_priv(iio_dev);
-	u8 out_data[ALIGN(4, sizeof(s64)) + sizeof(s64)];
 
-	memcpy(out_data, dev->buffer, sizeof(dev->buffer));
-	iio_push_to_buffers_with_timestamp(iio_dev, out_data,
+	iio_push_to_buffers_with_timestamp(iio_dev, dev->buffer,
 					   dev->hw_timestamp);
-
 	iio_trigger_notify_done(dev->trig);
 
 	return IRQ_HANDLED;

@@ -18,6 +18,8 @@
 #define HTS221_RX_MAX_LENGTH	500
 #define HTS221_TX_MAX_LENGTH	500
 
+#define HTS221_DATA_SIZE	2
+
 struct hts221_transfer_buffer {
 	u8 rx_buf[HTS221_RX_MAX_LENGTH];
 	u8 tx_buf[HTS221_TX_MAX_LENGTH] ____cacheline_aligned;
@@ -54,7 +56,7 @@ struct hts221_dev {
 
 	struct mutex lock;
 
-	u8 buffer[4];
+	u8 buffer[ALIGN(2 * HTS221_DATA_SIZE, sizeof(s64)) + sizeof(s64)];
 	struct iio_trigger *trig;
 	int irq;
 
