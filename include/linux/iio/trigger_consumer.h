@@ -60,4 +60,7 @@ void iio_trigger_notify_done(struct iio_trigger *trig);
 int iio_triggered_buffer_postenable(struct iio_dev *indio_dev);
 int iio_triggered_buffer_predisable(struct iio_dev *indio_dev);
 
+int iio_trigger_validate_own_device(struct iio_trigger *trig,
+				     struct iio_dev *indio_dev);
+
 #endif
