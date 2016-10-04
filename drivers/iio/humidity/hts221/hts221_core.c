@@ -68,7 +68,7 @@
 #define HTS221_REG_T1_T0_CAL_Y_H	0x35
 
 struct hts221_odr {
-	u32 hz;
+	u8 hz;
 	u8 val;
 };
 
@@ -582,6 +582,14 @@ out:
 	return ret;
 }
 
+static int hts221_validate_trigger(struct iio_dev *iio_dev,
+				   struct iio_trigger *trig)
+{
+	struct hts221_dev *dev = iio_priv(iio_dev);
+
+	return dev->trig == trig ? 0 : -EINVAL;
+}
+
 static IIO_DEVICE_ATTR(in_humidity_oversampling_ratio_available, S_IRUGO,
 		       hts221_sysfs_rh_oversampling_avail, NULL, 0);
 static IIO_DEVICE_ATTR(in_temp_oversampling_ratio_available, S_IRUGO,
@@ -604,6 +612,7 @@ static const struct iio_info hts221_info = {
 	.attrs = &hts221_attribute_group,
 	.read_raw = hts221_read_raw,
 	.write_raw = hts221_write_raw,
+	.validate_trigger = hts221_validate_trigger,
 };
 
 static const unsigned long hts221_scan_masks[] = {0x3, 0x0};
