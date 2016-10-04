@@ -15,8 +15,8 @@
 
 #include <linux/iio/iio.h>
 
-#define HTS221_RX_MAX_LENGTH	500
-#define HTS221_TX_MAX_LENGTH	500
+#define HTS221_RX_MAX_LENGTH	8
+#define HTS221_TX_MAX_LENGTH	8
 
 #define HTS221_DATA_SIZE	2
 
