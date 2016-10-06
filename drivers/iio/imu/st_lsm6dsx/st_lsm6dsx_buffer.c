@@ -23,8 +23,8 @@
 #include <linux/iio/buffer.h>
 #include "st_lsm6dsx.h"
 
-#define REG_INT1_ADDR		0x0d
-#define REG_DATA_AVL_ADDR	0x1e
+#define ST_LSM6DX_REG_INT1_ADDR		0x0d
+#define ST_LSM6DX_REG_DATA_AVL_ADDR	0x1e
 
 static int st_lsm6dsx_trig_set_state(struct iio_trigger *trig, bool state)
 {
@@ -32,7 +32,7 @@ static int st_lsm6dsx_trig_set_state(struct iio_trigger *trig, bool state)
 	struct st_lsm6dsx_sensor *sensor = iio_priv(iio_dev);
 	u8 val = !!state;
 
-	return st_lsm6dsx_write_with_mask(sensor->dev, REG_INT1_ADDR,
+	return st_lsm6dsx_write_with_mask(sensor->dev, ST_LSM6DX_REG_INT1_ADDR,
 					  sensor->drdy_irq_mask, val);
 }
 
@@ -52,23 +52,26 @@ static const struct iio_trigger_ops st_lsm6dsx_trigger_ops = {
 
 static irqreturn_t st_lsm6dsx_trigger_handler_thread(int irq, void *private)
 {
-	int i, err;
-	u8 avl_data;
-	struct st_lsm6dsx_sensor *sensor;
 	struct st_lsm6dsx_dev *dev = (struct st_lsm6dsx_dev *)private;
+	struct st_lsm6dsx_sensor *sensor;
+	int i, err, count = 0;
+	u8 avl_data;
 
-	err = dev->tf->read(dev->dev, REG_DATA_AVL_ADDR, 1, &avl_data);
+	err = dev->tf->read(dev->dev, ST_LSM6DX_REG_DATA_AVL_ADDR, 1,
+			    &avl_data);
 	if (err < 0)
 		return IRQ_HANDLED;
 
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
 		sensor = iio_priv(dev->iio_devs[i]);
 
-		if (avl_data & sensor->drdy_data_mask)
+		if (avl_data & sensor->drdy_data_mask) {
 			iio_trigger_poll_chained(sensor->trig);
+			count++;
+		}
 	}
 
-	return IRQ_HANDLED;
+	return count > 0 ? IRQ_HANDLED : IRQ_NONE;
 }
 
 int st_lsm6dsx_allocate_triggers(struct st_lsm6dsx_dev *dev)

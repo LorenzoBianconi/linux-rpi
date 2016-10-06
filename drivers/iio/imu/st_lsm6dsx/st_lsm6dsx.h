@@ -59,8 +59,6 @@ struct st_lsm6dsx_dev {
 	int irq;
 	struct mutex lock;
 
-	s64 hw_timestamp;
-
 	struct iio_dev *iio_devs[ST_LSM6DSX_ID_MAX];
 
 	const struct st_lsm6dsx_transfer_function *tf;
