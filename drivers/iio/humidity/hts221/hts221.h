@@ -62,7 +62,6 @@ struct hts221_dev {
 
 	struct hts221_sensor sensors[HTS221_SENSOR_MAX];
 
-	s64 hw_timestamp;
 	u8 odr;
 
 	const struct hts221_transfer_function *tf;

@@ -40,15 +40,6 @@ static const struct iio_trigger_ops hts221_trigger_ops = {
 	.set_trigger_state = hts221_trig_set_state,
 };
 
-static irqreturn_t hts221_trigger_handler_irq(int irq, void *private)
-{
-	struct hts221_dev *dev = (struct hts221_dev *)private;
-
-	dev->hw_timestamp = iio_get_time_ns();
-
-	return IRQ_WAKE_THREAD;
-}
-
 static irqreturn_t hts221_trigger_handler_thread(int irq, void *private)
 {
 	struct hts221_dev *dev = (struct hts221_dev *)private;
@@ -112,8 +103,7 @@ int hts221_allocate_triggers(struct hts221_dev *dev)
 		break;
 	}
 
-	err = devm_request_threaded_irq(dev->dev, dev->irq,
-					hts221_trigger_handler_irq,
+	err = devm_request_threaded_irq(dev->dev, dev->irq, NULL,
 					hts221_trigger_handler_thread,
 					irq_type | IRQF_ONESHOT,
 					dev->name, dev);
@@ -160,7 +150,7 @@ static irqreturn_t hts221_buffer_handler_thread(int irq, void *p)
 	struct hts221_dev *dev = iio_priv(iio_dev);
 
 	iio_push_to_buffers_with_timestamp(iio_dev, dev->buffer,
-					   dev->hw_timestamp);
+					   iio_get_time_ns());
 	iio_trigger_notify_done(dev->trig);
 
 	return IRQ_HANDLED;
