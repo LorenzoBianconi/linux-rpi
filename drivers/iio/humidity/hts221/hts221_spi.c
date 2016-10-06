@@ -98,14 +98,6 @@ static int hts221_spi_probe(struct spi_device *spi)
 	return hts221_probe(dev);
 }
 
-static int hts221_spi_remove(struct spi_device *spi)
-{
-	struct iio_dev *iio_dev = spi_get_drvdata(spi);
-	struct hts221_dev *dev = iio_priv(iio_dev);
-
-	return hts221_remove(dev);
-}
-
 static const struct of_device_id hts221_spi_of_match[] = {
 	{ .compatible = "st,hts221", },
 	{},
@@ -124,7 +116,6 @@ static struct spi_driver hts221_driver = {
 		.of_match_table = of_match_ptr(hts221_spi_of_match),
 	},
 	.probe = hts221_spi_probe,
-	.remove = hts221_spi_remove,
 	.id_table = hts221_spi_id_table,
 };
 module_spi_driver(hts221_driver);

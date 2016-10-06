@@ -666,13 +666,11 @@ int hts221_probe(struct hts221_dev *dev)
 			return err;
 
 		err = hts221_allocate_triggers(dev);
-		if (err) {
-			hts221_deallocate_buffers(dev);
+		if (err)
 			return err;
-		}
 	}
 
-	return iio_device_register(iio_dev);
+	return devm_iio_device_register(dev->dev, iio_dev);
 
 power_off:
 	hts221_dev_power_off(dev);
@@ -680,21 +678,6 @@ power_off:
 	return err;
 }
 EXPORT_SYMBOL(hts221_probe);
-
-int hts221_remove(struct hts221_dev *dev)
-{
-	struct iio_dev *iio_dev = iio_priv_to_dev(dev);
-
-	iio_device_unregister(iio_dev);
-
-	if (dev->irq > 0) {
-		hts221_deallocate_triggers(dev);
-		hts221_deallocate_buffers(dev);
-	}
-
-	return hts221_dev_power_off(dev);
-}
-EXPORT_SYMBOL(hts221_remove);
 
 MODULE_AUTHOR("Lorenzo Bianconi <lorenzo.bianconi@st.com>");
 MODULE_DESCRIPTION("STMicroelectronics hts221 sensor driver");

@@ -71,32 +71,9 @@ struct hts221_dev {
 
 int hts221_config_drdy(struct hts221_dev *dev, bool enable);
 int hts221_probe(struct hts221_dev *dev);
-int hts221_remove(struct hts221_dev *dev);
 int hts221_dev_power_on(struct hts221_dev *dev);
 int hts221_dev_power_off(struct hts221_dev *dev);
-#ifdef CONFIG_IIO_BUFFER
 int hts221_allocate_buffers(struct hts221_dev *dev);
-void hts221_deallocate_buffers(struct hts221_dev *dev);
 int hts221_allocate_triggers(struct hts221_dev *dev);
-void hts221_deallocate_triggers(struct hts221_dev *dev);
-#else
-static inline int hts221_allocate_buffers(struct hts221_dev *dev)
-{
-	return 0;
-}
-
-static inline void hts221_deallocate_buffers(struct hts221_dev *dev)
-{
-}
-
-static inline int hts221_allocate_triggers(struct hts221_dev *dev)
-{
-	return 0;
-}
-
-static inline void hts221_deallocate_triggers(struct hts221_dev *dev)
-{
-}
-#endif /* CONFIG_IIO_BUFFER */
 
 #endif /* HTS221_H */

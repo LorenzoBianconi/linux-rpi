@@ -83,14 +83,6 @@ static int hts221_i2c_probe(struct i2c_client *client,
 	return hts221_probe(dev);
 }
 
-static int hts221_i2c_remove(struct i2c_client *client)
-{
-	struct iio_dev *iio_dev = i2c_get_clientdata(client);
-	struct hts221_dev *dev = iio_priv(iio_dev);
-
-	return hts221_remove(dev);
-}
-
 static const struct of_device_id hts221_i2c_of_match[] = {
 	{ .compatible = "st,hts221", },
 	{},
@@ -109,7 +101,6 @@ static struct i2c_driver hts221_driver = {
 		.of_match_table = of_match_ptr(hts221_i2c_of_match),
 	},
 	.probe = hts221_i2c_probe,
-	.remove = hts221_i2c_remove,
 	.id_table = hts221_i2c_id_table,
 };
 module_i2c_driver(hts221_driver);

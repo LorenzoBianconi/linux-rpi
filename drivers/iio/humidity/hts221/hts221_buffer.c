@@ -133,12 +133,7 @@ int hts221_allocate_triggers(struct hts221_dev *dev)
 	dev->trig->dev.parent = dev->dev;
 	iio_dev->trig = iio_trigger_get(dev->trig);
 
-	return iio_trigger_register(dev->trig);
-}
-
-void hts221_deallocate_triggers(struct hts221_dev *dev)
-{
-	iio_trigger_unregister(dev->trig);
+	return devm_iio_trigger_register(dev->dev, dev->trig);
 }
 
 static int hts221_buffer_preenable(struct iio_dev *iio_dev)
@@ -173,14 +168,9 @@ static irqreturn_t hts221_buffer_handler_thread(int irq, void *p)
 
 int hts221_allocate_buffers(struct hts221_dev *dev)
 {
-	return iio_triggered_buffer_setup(iio_priv_to_dev(dev), NULL,
-					  hts221_buffer_handler_thread,
-					  &hts221_buffer_ops);
-}
-
-void hts221_deallocate_buffers(struct hts221_dev *dev)
-{
-	iio_triggered_buffer_cleanup(iio_priv_to_dev(dev));
+	return devm_iio_triggered_buffer_setup(dev->dev, iio_priv_to_dev(dev),
+					NULL, hts221_buffer_handler_thread,
+					&hts221_buffer_ops);
 }
 
 MODULE_AUTHOR("Lorenzo Bianconi <lorenzo.bianconi@st.com>");
