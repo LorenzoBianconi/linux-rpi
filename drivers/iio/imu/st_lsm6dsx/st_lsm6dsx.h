@@ -21,8 +21,8 @@
 
 #if defined(CONFIG_IIO_ST_LSM6DSX_SPI) || \
 	defined(CONFIG_IIO_ST_LSM6DSX_SPI_MODULE)
-#define ST_LSM6DSX_RX_MAX_LENGTH	12
-#define ST_LSM6DSX_TX_MAX_LENGTH	8193
+#define ST_LSM6DSX_RX_MAX_LENGTH	8
+#define ST_LSM6DSX_TX_MAX_LENGTH	8
 
 struct st_lsm6dsx_transfer_buffer {
 	u8 rx_buf[ST_LSM6DSX_RX_MAX_LENGTH];
@@ -71,35 +71,11 @@ struct st_lsm6dsx_dev {
 };
 
 int st_lsm6dsx_probe(struct st_lsm6dsx_dev *dev);
-int st_lsm6dsx_remove(struct st_lsm6dsx_dev *dev);
 int st_lsm6dsx_set_enable(struct st_lsm6dsx_sensor *sensor, bool enable);
 int st_lsm6dsx_write_with_mask(struct st_lsm6dsx_dev *dev, u8 addr, u8 mask,
 			       u8 val);
-#ifdef CONFIG_IIO_BUFFER
 int st_lsm6dsx_allocate_triggers(struct st_lsm6dsx_dev *dev);
-int st_lsm6dsx_deallocate_triggers(struct st_lsm6dsx_dev *dev);
 int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_dev *dev);
-int st_lsm6dsx_deallocate_buffers(struct st_lsm6dsx_dev *dev);
-#else
-static inline int st_lsm6dsx_allocate_triggers(struct st_lsm6dsx_dev *dev)
-{
-	return 0;
-}
 
-static inline int st_lsm6dsx_deallocate_triggers(struct st_lsm6dsx_dev *dev)
-{
-	return 0;
-}
-
-static inline int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_dev *dev)
-{
-	return 0;
-}
-
-static inline int st_lsm6dsx_deallocate_buffers(struct st_lsm6dsx_dev *dev)
-{
-	return 0;
-}
-#endif /* CONFIG_IIO_BUFFER */
 #endif /* ST_LSM6DSX_H */
 

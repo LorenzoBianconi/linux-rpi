@@ -435,6 +435,14 @@ static int st_lsm6dsx_write_raw(struct iio_dev *iio_dev,
 	return err < 0 ? err : 0;
 }
 
+static int st_lsm6dsx_validate_trigger(struct iio_dev *iio_dev,
+				       struct iio_trigger *trig)
+{
+	struct st_lsm6dsx_sensor *sensor = iio_priv(iio_dev);
+
+	return sensor->trig == trig ? 0 : -EINVAL;
+}
+
 static ssize_t
 st_lsm6dsx_sysfs_get_sampling_frequency(struct device *device,
 					struct device_attribute *attr,
@@ -521,6 +529,7 @@ static const struct iio_info st_lsm6dsx_acc_info = {
 	.attrs = &st_lsm6dsx_acc_attribute_group,
 	.read_raw = st_lsm6dsx_read_raw,
 	.write_raw = st_lsm6dsx_write_raw,
+	.validate_trigger = st_lsm6dsx_validate_trigger,
 };
 
 static struct attribute *st_lsm6dsx_gyro_attributes[] = {
@@ -540,6 +549,8 @@ static const struct iio_info st_lsm6dsx_gyro_info = {
 	.read_raw = st_lsm6dsx_read_raw,
 	.write_raw = st_lsm6dsx_write_raw,
 };
+
+static const unsigned long st_lsm6dsx_available_scan_masks[] = {0x7, 0x0};
 
 static int st_lsm6dsx_init_device(struct st_lsm6dsx_dev *dev)
 {
@@ -583,12 +594,13 @@ static struct iio_dev *st_lsm6dsx_alloc_iiodev(struct st_lsm6dsx_dev *dev,
 	struct iio_dev *iio_dev;
 	struct st_lsm6dsx_sensor *sensor;
 
-	iio_dev = iio_device_alloc(sizeof(*sensor));
+	iio_dev = devm_iio_device_alloc(dev->dev, sizeof(*sensor));
 	if (!iio_dev)
 		return NULL;
 
 	iio_dev->modes = INDIO_DIRECT_MODE;
 	iio_dev->dev.parent = dev->dev;
+	iio_dev->available_scan_masks = st_lsm6dsx_available_scan_masks;
 
 	sensor = iio_priv(iio_dev);
 	sensor->id = id;
@@ -616,7 +628,6 @@ static struct iio_dev *st_lsm6dsx_alloc_iiodev(struct st_lsm6dsx_dev *dev,
 		sensor->drdy_irq_mask = REG_GYRO_DRDY_IRQ_MASK;
 		break;
 	default:
-		iio_device_free(iio_dev);
 		return NULL;
 	}
 
@@ -625,7 +636,7 @@ static struct iio_dev *st_lsm6dsx_alloc_iiodev(struct st_lsm6dsx_dev *dev,
 
 int st_lsm6dsx_probe(struct st_lsm6dsx_dev *dev)
 {
-	int i, j, err;
+	int i, err;
 
 	mutex_init(&dev->lock);
 
@@ -635,69 +646,33 @@ int st_lsm6dsx_probe(struct st_lsm6dsx_dev *dev)
 
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
 		dev->iio_devs[i] = st_lsm6dsx_alloc_iiodev(dev, i);
-		if (!dev->iio_devs[i]) {
-			err = -ENOMEM;
-			goto iio_device_free;
-		}
+		if (!dev->iio_devs[i])
+			return -ENOMEM;
 	}
 
 	err = st_lsm6dsx_init_device(dev);
 	if (err < 0)
-		goto iio_device_free;
+		return err;
 
 	if (dev->irq > 0) {
 		err = st_lsm6dsx_allocate_buffers(dev);
 		if (err < 0)
-			goto iio_device_free;
+			return err;
 
 		err = st_lsm6dsx_allocate_triggers(dev);
 		if (err < 0)
-			goto deallocate_buffers;
+			return err;
 	}
 
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
-		err = iio_device_register(dev->iio_devs[i]);
+		err = devm_iio_device_register(dev->dev, dev->iio_devs[i]);
 		if (err)
-			goto iio_device_unregister;
+			return err;
 	}
 
 	return 0;
-
-iio_device_unregister:
-	for (j = i - 1; j >= 0; j--)
-		iio_device_unregister(dev->iio_devs[i]);
-	if (dev->irq > 0)
-		st_lsm6dsx_deallocate_triggers(dev);
-deallocate_buffers:
-	if (dev->irq > 0)
-		st_lsm6dsx_deallocate_buffers(dev);
-iio_device_free:
-	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++)
-		if (dev->iio_devs[i])
-			iio_device_free(dev->iio_devs[i]);
-
-	return err;
 }
 EXPORT_SYMBOL(st_lsm6dsx_probe);
-
-int st_lsm6dsx_remove(struct st_lsm6dsx_dev *dev)
-{
-	int i;
-
-	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++)
-		iio_device_unregister(dev->iio_devs[i]);
-
-	if (dev->irq > 0) {
-		st_lsm6dsx_deallocate_triggers(dev);
-		st_lsm6dsx_deallocate_buffers(dev);
-	}
-
-	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++)
-		iio_device_free(dev->iio_devs[i]);
-
-	return 0;
-}
-EXPORT_SYMBOL(st_lsm6dsx_remove);
 
 MODULE_AUTHOR("Lorenzo Bianconi <lorenzo.bianconi@st.com>");
 MODULE_AUTHOR("Denis Ciocca <denis.ciocca@st.com>");

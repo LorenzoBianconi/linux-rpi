@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
+#include <linux/of.h>
 #include "st_lsm6dsx.h"
 
 static int st_lsm6dsx_i2c_read(struct device *dev, u8 addr, int len, u8 *data)
@@ -72,31 +73,12 @@ static int st_lsm6dsx_i2c_probe(struct i2c_client *client,
 	dev->tf = &st_lsm6dsx_transfer_fn;
 
 	err = st_lsm6dsx_probe(dev);
-	if (err < 0) {
-		kfree(dev);
-		return err;
-	}
-
-	dev_info(&client->dev, "sensor probed\n");
-
-	return 0;
-}
-
-static int st_lsm6dsx_i2c_remove(struct i2c_client *client)
-{
-	int err;
-	struct st_lsm6dsx_dev *dev = i2c_get_clientdata(client);
-
-	err = st_lsm6dsx_remove(dev);
 	if (err < 0)
-		return err;
+		kfree(dev);
 
-	dev_info(&client->dev, "sensor removed\n");
-
-	return 0;
+	return err;
 }
 
-#ifdef CONFIG_OF
 static const struct of_device_id st_lsm6dsx_i2c_of_match[] = {
 	{
 		.compatible = "st,lsm6ds3",
@@ -109,7 +91,6 @@ static const struct of_device_id st_lsm6dsx_i2c_of_match[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(of, st_lsm6dsx_i2c_of_match);
-#endif /* CONFIG_OF */
 
 static const struct i2c_device_id st_lsm6dsx_i2c_id_table[] = {
 	{ ST_LSM6DS3_DEV_NAME },
@@ -121,12 +102,9 @@ MODULE_DEVICE_TABLE(i2c, st_lsm6dsx_i2c_id_table);
 static struct i2c_driver st_lsm6dsx_driver = {
 	.driver = {
 		.name = "st_lsm6dsx_i2c",
-#ifdef CONFIG_OF
-		.of_match_table = st_lsm6dsx_i2c_of_match,
-#endif /* CONFIG_OF */
+		.of_match_table = of_match_ptr(st_lsm6dsx_i2c_of_match),
 	},
 	.probe = st_lsm6dsx_i2c_probe,
-	.remove = st_lsm6dsx_i2c_remove,
 	.id_table = st_lsm6dsx_i2c_id_table,
 };
 module_i2c_driver(st_lsm6dsx_driver);
