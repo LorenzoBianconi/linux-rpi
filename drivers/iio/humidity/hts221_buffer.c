@@ -30,9 +30,9 @@
 static int hts221_trig_set_state(struct iio_trigger *trig, bool state)
 {
 	struct iio_dev *iio_dev = iio_trigger_get_drvdata(trig);
-	struct hts221_dev *dev = iio_priv(iio_dev);
+	struct hts221_hw *hw = iio_priv(iio_dev);
 
-	return hts221_config_drdy(dev, state);
+	return hts221_config_drdy(hw, state);
 }
 
 static const struct iio_trigger_ops hts221_trigger_ops = {
@@ -42,22 +42,22 @@ static const struct iio_trigger_ops hts221_trigger_ops = {
 
 static irqreturn_t hts221_trigger_handler_thread(int irq, void *private)
 {
-	struct hts221_dev *dev = (struct hts221_dev *)private;
-	struct iio_dev *iio_dev = iio_priv_to_dev(dev);
+	struct hts221_hw *hw = (struct hts221_hw *)private;
+	struct iio_dev *iio_dev = iio_priv_to_dev(hw);
 	struct iio_chan_spec const *ch;
 	int err, count = 0;
 	u8 status;
 
-	err = dev->tf->read(dev->dev, HTS221_REG_STATUS_ADDR, sizeof(status),
-			    &status);
+	err = hw->tf->read(hw->dev, HTS221_REG_STATUS_ADDR, sizeof(status),
+			   &status);
 	if (err < 0)
 		return IRQ_HANDLED;
 
 	/* humidity data */
 	if (status & HTS221_RH_DRDY_MASK) {
 		ch = &iio_dev->channels[HTS221_SENSOR_H];
-		err = dev->tf->read(dev->dev, ch->address, HTS221_DATA_SIZE,
-				    dev->buffer);
+		err = hw->tf->read(hw->dev, ch->address, HTS221_DATA_SIZE,
+				   hw->buffer);
 		if (err < 0)
 			return IRQ_HANDLED;
 
@@ -67,8 +67,8 @@ static irqreturn_t hts221_trigger_handler_thread(int irq, void *private)
 	/* temperature data */
 	if (status & HTS221_TEMP_DRDY_MASK) {
 		ch = &iio_dev->channels[HTS221_SENSOR_T];
-		err = dev->tf->read(dev->dev, ch->address, HTS221_DATA_SIZE,
-				    dev->buffer + 2 * count);
+		err = hw->tf->read(hw->dev, ch->address, HTS221_DATA_SIZE,
+				   hw->buffer + 2 * count);
 		if (err < 0)
 			return IRQ_HANDLED;
 
@@ -76,54 +76,54 @@ static irqreturn_t hts221_trigger_handler_thread(int irq, void *private)
 	}
 
 	if (count > 0) {
-		iio_trigger_poll_chained(dev->trig);
+		iio_trigger_poll_chained(hw->trig);
 		return IRQ_HANDLED;
 	} else {
 		return IRQ_NONE;
 	}
 }
 
-int hts221_allocate_triggers(struct hts221_dev *dev)
+int hts221_allocate_triggers(struct hts221_hw *hw)
 {
-	struct iio_dev *iio_dev = iio_priv_to_dev(dev);
+	struct iio_dev *iio_dev = iio_priv_to_dev(hw);
 	unsigned long irq_type;
 	int err;
 
-	irq_type = irqd_get_trigger_type(irq_get_irq_data(dev->irq));
+	irq_type = irqd_get_trigger_type(irq_get_irq_data(hw->irq));
 
 	switch (irq_type) {
 	case IRQF_TRIGGER_HIGH:
 	case IRQF_TRIGGER_RISING:
 		break;
 	default:
-		dev_info(dev->dev,
+		dev_info(hw->dev,
 			 "mode %lx unsupported, using IRQF_TRIGGER_RISING\n",
 			 irq_type);
 		irq_type = IRQF_TRIGGER_RISING;
 		break;
 	}
 
-	err = devm_request_threaded_irq(dev->dev, dev->irq, NULL,
+	err = devm_request_threaded_irq(hw->dev, hw->irq, NULL,
 					hts221_trigger_handler_thread,
 					irq_type | IRQF_ONESHOT,
-					dev->name, dev);
+					hw->name, hw);
 	if (err) {
-		dev_err(dev->dev, "failed to request trigger irq %d\n",
-			dev->irq);
+		dev_err(hw->dev, "failed to request trigger irq %d\n",
+			hw->irq);
 		return err;
 	}
 
-	dev->trig = devm_iio_trigger_alloc(dev->dev, "%s-trigger",
-					   iio_dev->name);
-	if (!dev->trig)
+	hw->trig = devm_iio_trigger_alloc(hw->dev, "%s-trigger",
+					  iio_dev->name);
+	if (!hw->trig)
 		return -ENOMEM;
 
-	iio_trigger_set_drvdata(dev->trig, iio_dev);
-	dev->trig->ops = &hts221_trigger_ops;
-	dev->trig->dev.parent = dev->dev;
-	iio_dev->trig = iio_trigger_get(dev->trig);
+	iio_trigger_set_drvdata(hw->trig, iio_dev);
+	hw->trig->ops = &hts221_trigger_ops;
+	hw->trig->dev.parent = hw->dev;
+	iio_dev->trig = iio_trigger_get(hw->trig);
 
-	return devm_iio_trigger_register(dev->dev, dev->trig);
+	return devm_iio_trigger_register(hw->dev, hw->trig);
 }
 
 static int hts221_buffer_preenable(struct iio_dev *iio_dev)
@@ -147,18 +147,18 @@ static irqreturn_t hts221_buffer_handler_thread(int irq, void *p)
 {
 	struct iio_poll_func *pf = p;
 	struct iio_dev *iio_dev = pf->indio_dev;
-	struct hts221_dev *dev = iio_priv(iio_dev);
+	struct hts221_hw *hw = iio_priv(iio_dev);
 
-	iio_push_to_buffers_with_timestamp(iio_dev, dev->buffer,
+	iio_push_to_buffers_with_timestamp(iio_dev, hw->buffer,
 					   iio_get_time_ns());
-	iio_trigger_notify_done(dev->trig);
+	iio_trigger_notify_done(hw->trig);
 
 	return IRQ_HANDLED;
 }
 
-int hts221_allocate_buffers(struct hts221_dev *dev)
+int hts221_allocate_buffers(struct hts221_hw *hw)
 {
-	return devm_iio_triggered_buffer_setup(dev->dev, iio_priv_to_dev(dev),
+	return devm_iio_triggered_buffer_setup(hw->dev, iio_priv_to_dev(hw),
 					NULL, hts221_buffer_handler_thread,
 					&hts221_buffer_ops);
 }

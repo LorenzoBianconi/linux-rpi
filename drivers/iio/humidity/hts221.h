@@ -43,14 +43,11 @@ enum hts221_sensor_type {
 };
 
 struct hts221_sensor {
-	struct hts221_dev *dev;
-
-	enum hts221_sensor_type type;
 	u8 cur_avg_idx;
 	int slope, b_gen;
 };
 
-struct hts221_dev {
+struct hts221_hw {
 	const char *name;
 	struct device *dev;
 
@@ -68,11 +65,11 @@ struct hts221_dev {
 	struct hts221_transfer_buffer tb;
 };
 
-int hts221_config_drdy(struct hts221_dev *dev, bool enable);
-int hts221_probe(struct hts221_dev *dev);
-int hts221_dev_power_on(struct hts221_dev *dev);
-int hts221_dev_power_off(struct hts221_dev *dev);
-int hts221_allocate_buffers(struct hts221_dev *dev);
-int hts221_allocate_triggers(struct hts221_dev *dev);
+int hts221_config_drdy(struct hts221_hw *hw, bool enable);
+int hts221_probe(struct iio_dev *iio_dev);
+int hts221_dev_power_on(struct hts221_hw *hw);
+int hts221_dev_power_off(struct hts221_hw *hw);
+int hts221_allocate_buffers(struct hts221_hw *hw);
+int hts221_allocate_triggers(struct hts221_hw *hw);
 
 #endif /* HTS221_H */

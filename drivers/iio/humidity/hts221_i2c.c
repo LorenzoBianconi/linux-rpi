@@ -65,22 +65,22 @@ static const struct hts221_transfer_function hts221_transfer_fn = {
 static int hts221_i2c_probe(struct i2c_client *client,
 			    const struct i2c_device_id *id)
 {
-	struct hts221_dev *dev;
+	struct hts221_hw *hw;
 	struct iio_dev *iio_dev;
 
-	iio_dev = devm_iio_device_alloc(&client->dev, sizeof(*dev));
+	iio_dev = devm_iio_device_alloc(&client->dev, sizeof(*hw));
 	if (!iio_dev)
 		return -ENOMEM;
 
 	i2c_set_clientdata(client, iio_dev);
 
-	dev = iio_priv(iio_dev);
-	dev->name = client->name;
-	dev->dev = &client->dev;
-	dev->irq = client->irq;
-	dev->tf = &hts221_transfer_fn;
+	hw = iio_priv(iio_dev);
+	hw->name = client->name;
+	hw->dev = &client->dev;
+	hw->irq = client->irq;
+	hw->tf = &hts221_transfer_fn;
 
-	return hts221_probe(dev);
+	return hts221_probe(iio_dev);
 }
 
 static const struct of_device_id hts221_i2c_of_match[] = {
