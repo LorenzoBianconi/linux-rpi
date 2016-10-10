@@ -43,44 +43,26 @@ static const struct iio_trigger_ops hts221_trigger_ops = {
 static irqreturn_t hts221_trigger_handler_thread(int irq, void *private)
 {
 	struct hts221_hw *hw = (struct hts221_hw *)private;
-	struct iio_dev *iio_dev = iio_priv_to_dev(hw);
-	struct iio_chan_spec const *ch;
-	int err, count = 0;
 	u8 status;
+	int err;
 
 	err = hw->tf->read(hw->dev, HTS221_REG_STATUS_ADDR, sizeof(status),
 			   &status);
 	if (err < 0)
 		return IRQ_HANDLED;
 
-	/* humidity data */
-	if (status & HTS221_RH_DRDY_MASK) {
-		ch = &iio_dev->channels[HTS221_SENSOR_H];
-		err = hw->tf->read(hw->dev, ch->address, HTS221_DATA_SIZE,
-				   hw->buffer);
-		if (err < 0)
-			return IRQ_HANDLED;
+	/* H_DA bit (humidity data available) is routed to DRDY line.
+	 * Humidity sample is computed after temperature one.
+	 * Here we can assume data channels are both available if H_DA bit
+	 * is set in status register
+	 */
 
-		count++;
-	}
-
-	/* temperature data */
-	if (status & HTS221_TEMP_DRDY_MASK) {
-		ch = &iio_dev->channels[HTS221_SENSOR_T];
-		err = hw->tf->read(hw->dev, ch->address, HTS221_DATA_SIZE,
-				   hw->buffer + 2 * count);
-		if (err < 0)
-			return IRQ_HANDLED;
-
-		count++;
-	}
-
-	if (count > 0) {
-		iio_trigger_poll_chained(hw->trig);
-		return IRQ_HANDLED;
-	} else {
+	if (!(status & HTS221_RH_DRDY_MASK))
 		return IRQ_NONE;
-	}
+
+	iio_trigger_poll_chained(hw->trig);
+
+	return IRQ_HANDLED;
 }
 
 int hts221_allocate_triggers(struct hts221_hw *hw)
@@ -145,14 +127,31 @@ static const struct iio_buffer_setup_ops hts221_buffer_ops = {
 
 static irqreturn_t hts221_buffer_handler_thread(int irq, void *p)
 {
+	u8 buffer[ALIGN(2 * HTS221_DATA_SIZE, sizeof(s64)) + sizeof(s64)];
 	struct iio_poll_func *pf = p;
 	struct iio_dev *iio_dev = pf->indio_dev;
 	struct hts221_hw *hw = iio_priv(iio_dev);
+	struct iio_chan_spec const *ch;
+	int err;
 
-	iio_push_to_buffers_with_timestamp(iio_dev, hw->buffer,
-					   iio_get_time_ns());
+	/* humidity data */
+	ch = &iio_dev->channels[HTS221_SENSOR_H];
+	err = hw->tf->read(hw->dev, ch->address, HTS221_DATA_SIZE,
+			   buffer);
+	if (err < 0)
+		goto out;
+
+	/* temperature data */
+	ch = &iio_dev->channels[HTS221_SENSOR_T];
+	err = hw->tf->read(hw->dev, ch->address, HTS221_DATA_SIZE,
+			   buffer + HTS221_DATA_SIZE);
+	if (err < 0)
+		goto out;
+
+	iio_push_to_buffers_with_timestamp(iio_dev, buffer, iio_get_time_ns());
 	iio_trigger_notify_done(hw->trig);
 
+out:
 	return IRQ_HANDLED;
 }
 

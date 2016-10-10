@@ -52,8 +52,6 @@ struct hts221_hw {
 	struct device *dev;
 
 	struct mutex lock;
-
-	u8 buffer[ALIGN(2 * HTS221_DATA_SIZE, sizeof(s64)) + sizeof(s64)];
 	struct iio_trigger *trig;
 	int irq;
 
