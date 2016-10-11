@@ -56,7 +56,6 @@ static irqreturn_t hts221_trigger_handler_thread(int irq, void *private)
 	 * Here we can assume data channels are both available if H_DA bit
 	 * is set in status register
 	 */
-
 	if (!(status & HTS221_RH_DRDY_MASK))
 		return IRQ_NONE;
 
@@ -149,9 +148,10 @@ static irqreturn_t hts221_buffer_handler_thread(int irq, void *p)
 		goto out;
 
 	iio_push_to_buffers_with_timestamp(iio_dev, buffer, iio_get_time_ns());
-	iio_trigger_notify_done(hw->trig);
 
 out:
+	iio_trigger_notify_done(hw->trig);
+
 	return IRQ_HANDLED;
 }
 
