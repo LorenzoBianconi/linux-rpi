@@ -305,12 +305,12 @@ hts221_sysfs_temp_oversampling_avail(struct device *dev,
 	return len;
 }
 
-int hts221_dev_power_on(struct hts221_hw *hw)
+int hts221_power_on(struct hts221_hw *hw)
 {
 	return hts221_update_odr(hw, hw->odr);
 }
 
-int hts221_dev_power_off(struct hts221_hw *hw)
+int hts221_power_off(struct hts221_hw *hw)
 {
 	u8 data[] = {0x00, 0x00};
 
@@ -478,7 +478,7 @@ static int hts221_read_raw(struct iio_dev *iio_dev,
 	case IIO_CHAN_INFO_RAW: {
 		u8 data[HTS221_DATA_SIZE];
 
-		ret = hts221_dev_power_on(hw);
+		ret = hts221_power_on(hw);
 		if (ret < 0)
 			goto out;
 
@@ -488,7 +488,7 @@ static int hts221_read_raw(struct iio_dev *iio_dev,
 		if (ret < 0)
 			goto out;
 
-		ret = hts221_dev_power_off(hw);
+		ret = hts221_power_off(hw);
 		if (ret < 0)
 			goto out;
 
@@ -617,14 +617,11 @@ int hts221_probe(struct iio_dev *iio_dev)
 {
 	struct hts221_hw *hw = iio_priv(iio_dev);
 	int err;
+	u8 data;
 
 	mutex_init(&hw->lock);
 
 	err = hts221_check_whoami(hw);
-	if (err < 0)
-		return err;
-
-	err = hts221_update_odr(hw, 1);
 	if (err < 0)
 		return err;
 
@@ -638,22 +635,35 @@ int hts221_probe(struct iio_dev *iio_dev)
 	iio_dev->name = HTS221_DEV_NAME;
 	iio_dev->info = &hts221_info;
 
-	/* get calibration data for humidity and temperature sensors */
+	/* configure humidity sensor */
 	err = hts221_parse_rh_caldata(hw);
 	if (err < 0) {
 		dev_err(hw->dev, "failed to get rh calibration data\n");
-		goto power_off;
+		return err;
 	}
 
+	data = hts221_avg_list[HTS221_SENSOR_H].avg_avl[3].avg;
+	err = hts221_update_avg(hw, HTS221_SENSOR_H, data);
+	if (err < 0) {
+		dev_err(hw->dev, "failed to set rh oversampling ratio\n");
+		return err;
+	}
+
+	/* configure temperature sensor */
 	err = hts221_parse_temp_caldata(hw);
 	if (err < 0) {
-		dev_err(hw->dev, "failed to get temperature calibration data\n");
-		goto power_off;
+		dev_err(hw->dev,
+			"failed to get temperature calibration data\n");
+		return err;
 	}
 
-	err = hts221_dev_power_off(hw);
-	if (err < 0)
+	data = hts221_avg_list[HTS221_SENSOR_T].avg_avl[3].avg;
+	err = hts221_update_avg(hw, HTS221_SENSOR_T, data);
+	if (err < 0) {
+		dev_err(hw->dev,
+			"failed to set temperature oversampling ratio\n");
 		return err;
+	}
 
 	if (hw->irq > 0) {
 		err = hts221_allocate_buffers(hw);
@@ -666,11 +676,6 @@ int hts221_probe(struct iio_dev *iio_dev)
 	}
 
 	return devm_iio_device_register(hw->dev, iio_dev);
-
-power_off:
-	hts221_dev_power_off(hw);
-
-	return err;
 }
 EXPORT_SYMBOL(hts221_probe);
 

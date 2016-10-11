@@ -65,8 +65,8 @@ struct hts221_hw {
 
 int hts221_config_drdy(struct hts221_hw *hw, bool enable);
 int hts221_probe(struct iio_dev *iio_dev);
-int hts221_dev_power_on(struct hts221_hw *hw);
-int hts221_dev_power_off(struct hts221_hw *hw);
+int hts221_power_on(struct hts221_hw *hw);
+int hts221_power_off(struct hts221_hw *hw);
 int hts221_allocate_buffers(struct hts221_hw *hw);
 int hts221_allocate_triggers(struct hts221_hw *hw);
 

@@ -109,12 +109,12 @@ int hts221_allocate_triggers(struct hts221_hw *hw)
 
 static int hts221_buffer_preenable(struct iio_dev *iio_dev)
 {
-	return hts221_dev_power_on(iio_priv(iio_dev));
+	return hts221_power_on(iio_priv(iio_dev));
 }
 
 static int hts221_buffer_postdisable(struct iio_dev *iio_dev)
 {
-	return hts221_dev_power_off(iio_priv(iio_dev));
+	return hts221_power_off(iio_priv(iio_dev));
 }
 
 static const struct iio_buffer_setup_ops hts221_buffer_ops = {
