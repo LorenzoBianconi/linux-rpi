@@ -463,6 +463,28 @@ static int hts221_get_sensor_offset(struct hts221_hw *hw,
 	return IIO_VAL_INT_PLUS_NANO;
 }
 
+static int hts221_read_oneshot(struct hts221_hw *hw, u8 addr, int *val)
+{
+	u8 data[HTS221_DATA_SIZE];
+	int err;
+
+	err = hts221_power_on(hw);
+	if (err < 0)
+		return err;
+
+	msleep(50);
+
+	err = hw->tf->read(hw->dev, addr, sizeof(data), data);
+	if (err < 0)
+		return err;
+
+	hts221_power_off(hw);
+
+	*val = (s16)get_unaligned_le16(data);
+
+	return IIO_VAL_INT;
+}
+
 static int hts221_read_raw(struct iio_dev *iio_dev,
 			   struct iio_chan_spec const *ch,
 			   int *val, int *val2, long mask)
@@ -475,27 +497,9 @@ static int hts221_read_raw(struct iio_dev *iio_dev,
 		return ret;
 
 	switch (mask) {
-	case IIO_CHAN_INFO_RAW: {
-		u8 data[HTS221_DATA_SIZE];
-
-		ret = hts221_power_on(hw);
-		if (ret < 0)
-			goto out;
-
-		msleep(50);
-
-		ret = hw->tf->read(hw->dev, ch->address, sizeof(data), data);
-		if (ret < 0)
-			goto out;
-
-		ret = hts221_power_off(hw);
-		if (ret < 0)
-			goto out;
-
-		*val = (s16)get_unaligned_le16(data);
-		ret = IIO_VAL_INT;
+	case IIO_CHAN_INFO_RAW:
+		ret = hts221_read_oneshot(hw, ch->address, val);
 		break;
-	}
 	case IIO_CHAN_INFO_SCALE:
 		ret = hts221_get_sensor_scale(hw, ch->type, val, val2);
 		break;
@@ -534,7 +538,6 @@ static int hts221_read_raw(struct iio_dev *iio_dev,
 		break;
 	}
 
-out:
 	iio_device_release_direct_mode(iio_dev);
 
 	return ret;
