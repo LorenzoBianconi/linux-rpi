@@ -7,7 +7,7 @@ config IIO_ST_LSM6DSX
 	select IIO_ST_LSM6DSX_I2C if (I2C)
 	select IIO_ST_LSM6DSX_SPI if (SPI_MASTER)
 	help
-	  Say yes here to build support for STMicroelectronics LSM6DSX imu
+	  Say yes here to build support for STMicroelectronics LSM6DSx imu
 	  sensor. Supported devices: lsm6ds3, lsm6dsm
 
 	  To compile this driver as a module, choose M here: the module

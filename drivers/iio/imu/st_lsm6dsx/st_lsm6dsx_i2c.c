@@ -14,6 +14,7 @@
 #include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+
 #include "st_lsm6dsx.h"
 
 static int st_lsm6dsx_i2c_read(struct device *dev, u8 addr, int len, u8 *data)
@@ -60,21 +61,21 @@ static int st_lsm6dsx_i2c_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
 	int err;
-	struct st_lsm6dsx_dev *dev;
+	struct st_lsm6dsx_hw *hw;
 
-	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-	if (!dev)
+	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
+	if (!hw)
 		return -ENOMEM;
 
-	i2c_set_clientdata(client, dev);
-	dev->name = client->name;
-	dev->dev = &client->dev;
-	dev->irq = client->irq;
-	dev->tf = &st_lsm6dsx_transfer_fn;
+	i2c_set_clientdata(client, hw);
+	hw->name = client->name;
+	hw->dev = &client->dev;
+	hw->irq = client->irq;
+	hw->tf = &st_lsm6dsx_transfer_fn;
 
-	err = st_lsm6dsx_probe(dev);
+	err = st_lsm6dsx_probe(hw);
 	if (err < 0)
-		kfree(dev);
+		kfree(hw);
 
 	return err;
 }

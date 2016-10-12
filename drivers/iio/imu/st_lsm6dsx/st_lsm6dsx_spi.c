@@ -14,48 +14,49 @@
 #include <linux/spi/spi.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+
 #include "st_lsm6dsx.h"
 
 #define SENSORS_SPI_READ	0x80
 
-static int st_lsm6dsx_spi_read(struct device *device, u8 addr, int len,
+static int st_lsm6dsx_spi_read(struct device *dev, u8 addr, int len,
 			       u8 *data)
 {
 	int err;
-	struct spi_device *spi = to_spi_device(device);
-	struct st_lsm6dsx_dev *dev = spi_get_drvdata(spi);
+	struct spi_device *spi = to_spi_device(dev);
+	struct st_lsm6dsx_hw *hw = spi_get_drvdata(spi);
 
 	struct spi_transfer xfers[] = {
 		{
-			.tx_buf = dev->tb.tx_buf,
+			.tx_buf = hw->tb.tx_buf,
 			.bits_per_word = 8,
 			.len = 1,
 		},{
-			.rx_buf = dev->tb.rx_buf,
+			.rx_buf = hw->tb.rx_buf,
 			.bits_per_word = 8,
 			.len = len,
 		}
 	};
 
-	dev->tb.tx_buf[0] = addr | SENSORS_SPI_READ;
+	hw->tb.tx_buf[0] = addr | SENSORS_SPI_READ;
 
 	err = spi_sync_transfer(spi, xfers,  ARRAY_SIZE(xfers));
 	if (err < 0)
 		return err;
 
-	memcpy(data, dev->tb.rx_buf, len * sizeof(u8));
+	memcpy(data, hw->tb.rx_buf, len * sizeof(u8));
 
 	return len;
 }
 
-static int st_lsm6dsx_spi_write(struct device *device, u8 addr, int len,
+static int st_lsm6dsx_spi_write(struct device *dev, u8 addr, int len,
 				u8 *data)
 {
-	struct spi_device *spi = to_spi_device(device);
-	struct st_lsm6dsx_dev *dev = spi_get_drvdata(spi);
+	struct spi_device *spi = to_spi_device(dev);
+	struct st_lsm6dsx_hw *hw = spi_get_drvdata(spi);
 
 	struct spi_transfer xfers = {
-		.tx_buf = dev->tb.tx_buf,
+		.tx_buf = hw->tb.tx_buf,
 		.bits_per_word = 8,
 		.len = len + 1,
 	};
@@ -63,8 +64,8 @@ static int st_lsm6dsx_spi_write(struct device *device, u8 addr, int len,
 	if (len >= ST_LSM6DSX_TX_MAX_LENGTH)
 		return -ENOMEM;
 
-	dev->tb.tx_buf[0] = addr;
-	memcpy(&dev->tb.tx_buf[1], data, len);
+	hw->tb.tx_buf[0] = addr;
+	memcpy(&hw->tb.tx_buf[1], data, len);
 
 	return spi_sync_transfer(spi, &xfers, 1);
 }
@@ -77,21 +78,21 @@ static const struct st_lsm6dsx_transfer_function st_lsm6dsx_transfer_fn = {
 static int st_lsm6dsx_spi_probe(struct spi_device *spi)
 {
 	int err;
-	struct st_lsm6dsx_dev *dev;
+	struct st_lsm6dsx_hw *hw;
 
-	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-	if (!dev)
+	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
+	if (!hw)
 		return -ENOMEM;
 
-	spi_set_drvdata(spi, dev);
-	dev->name = spi->modalias;
-	dev->dev = &spi->dev;
-	dev->irq = spi->irq;
-	dev->tf = &st_lsm6dsx_transfer_fn;
+	spi_set_drvdata(spi, hw);
+	hw->name = spi->modalias;
+	hw->dev = &spi->dev;
+	hw->irq = spi->irq;
+	hw->tf = &st_lsm6dsx_transfer_fn;
 
-	err = st_lsm6dsx_probe(dev);
+	err = st_lsm6dsx_probe(hw);
 	if (err < 0)
-		kfree(dev);
+		kfree(hw);
 
 	return err;
 }

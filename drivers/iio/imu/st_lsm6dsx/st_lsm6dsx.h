@@ -43,7 +43,7 @@ enum st_lsm6dsx_sensor_id {
 
 struct st_lsm6dsx_sensor {
 	enum st_lsm6dsx_sensor_id id;
-	struct st_lsm6dsx_dev *dev;
+	struct st_lsm6dsx_hw *hw;
 	struct iio_trigger *trig;
 
 	u16 odr;
@@ -53,7 +53,7 @@ struct st_lsm6dsx_sensor {
 	u8 drdy_irq_mask;
 };
 
-struct st_lsm6dsx_dev {
+struct st_lsm6dsx_hw {
 	const char *name;
 	struct device *dev;
 	int irq;
@@ -68,12 +68,12 @@ struct st_lsm6dsx_dev {
 #endif /* CONFIG_IIO_ST_LSM6DSX_SPI */
 };
 
-int st_lsm6dsx_probe(struct st_lsm6dsx_dev *dev);
+int st_lsm6dsx_probe(struct st_lsm6dsx_hw *hw);
 int st_lsm6dsx_set_enable(struct st_lsm6dsx_sensor *sensor, bool enable);
-int st_lsm6dsx_write_with_mask(struct st_lsm6dsx_dev *dev, u8 addr, u8 mask,
+int st_lsm6dsx_write_with_mask(struct st_lsm6dsx_hw *hw, u8 addr, u8 mask,
 			       u8 val);
-int st_lsm6dsx_allocate_triggers(struct st_lsm6dsx_dev *dev);
-int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_dev *dev);
+int st_lsm6dsx_allocate_triggers(struct st_lsm6dsx_hw *hw);
+int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_hw *hw);
 
 #endif /* ST_LSM6DSX_H */
 
