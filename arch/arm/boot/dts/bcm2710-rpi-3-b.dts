@@ -110,7 +110,7 @@
 	pinctrl-0 = <&spi0_pins &spi0_cs_pins>;
 	cs-gpios = <&gpio 8 1>, <&gpio 7 1>;
 
-	hts221@0{
+	/*hts221@0{
 		compatible = "st,hts221";
 		reg = <0>;
 		#address-cells = <1>;
@@ -121,7 +121,7 @@
 		interrupts = <26 0x1>;
 	};
 
-	/*spidev0: spidev@0{
+	spidev0: spidev@0{
 		compatible = "spidev";
 		reg = <0>;
 		#address-cells = <1>;
@@ -150,11 +150,17 @@
 	pinctrl-0 = <&i2c1_pins>;
 	clock-frequency = <100000>;
 
-	hts221@5f {
+	/*hts221@5f {
 		compatible = "st,hts221";
 		reg = <0x5f>;
 		interrupt-parent = <&gpio>;
 		interrupts = <26 0x1>;
+	};*/
+	lsm6dsm@6a {
+		compatible = "st,lsm6dsm";
+		reg = <0x6a>;
+		interrupt-parent = <&gpio>;
+		interrupts = <26 0x4>;
 	};
 };
 
