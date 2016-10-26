@@ -11,8 +11,6 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/interrupt.h>
-#include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -20,6 +18,7 @@
 
 #include "st_lsm6dsx.h"
 
+#define ST_LSM6DX_REG_INT1_ADDR			0x0d
 #define ST_LSM6DSX_REG_ACC_DRDY_IRQ_MASK	0x01
 #define ST_LSM6DSX_REG_GYRO_DRDY_IRQ_MASK	0x02
 #define ST_LSM6DSX_REG_WHOAMI_ADDR		0x0f
@@ -286,9 +285,9 @@ static int st_lsm6dsx_check_whoami(struct st_lsm6dsx_hw *hw)
 
 static int st_lsm6dsx_set_fs(struct st_lsm6dsx_sensor *sensor, u32 gain)
 {
-	u8 val;
-	int i, err;
 	enum st_lsm6dsx_sensor_id id = sensor->id;
+	int i, err;
+	u8 val;
 
 	for (i = 0; i < ST_LSM6DSX_FS_LIST_SIZE; i++)
 		if (st_lsm6dsx_fs_table[id].fs_avl[i].gain == gain)
@@ -311,9 +310,9 @@ static int st_lsm6dsx_set_fs(struct st_lsm6dsx_sensor *sensor, u32 gain)
 
 static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
 {
-	u8 val;
-	int i, err;
 	enum st_lsm6dsx_sensor_id id = sensor->id;
+	int i, err;
+	u8 val;
 
 	for (i = 0; i < ST_LSM6DSX_ODR_LIST_SIZE; i++)
 		if (st_lsm6dsx_odr_table[id].odr_avl[i].hz == odr)
@@ -337,26 +336,29 @@ static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
 int st_lsm6dsx_set_enable(struct st_lsm6dsx_sensor *sensor, bool enable)
 {
 	enum st_lsm6dsx_sensor_id id = sensor->id;
+	int err;
 
 	if (enable)
-		return st_lsm6dsx_set_odr(sensor, sensor->odr);
+		err = st_lsm6dsx_set_odr(sensor, sensor->odr);
 	else
-		return st_lsm6dsx_write_with_mask(sensor->hw,
-					st_lsm6dsx_odr_table[id].addr,
-					st_lsm6dsx_odr_table[id].mask, 0);
+		err = st_lsm6dsx_write_with_mask(sensor->hw,
+						 st_lsm6dsx_odr_table[id].addr,
+						 st_lsm6dsx_odr_table[id].mask, 0);
+	return err < 0 ? err : 0;
 }
 
 static int st_lsm6dsx_read_oneshot(struct st_lsm6dsx_sensor *sensor,
 				   u8 addr, int *val)
 {
+	int err, delay;
 	u8 data[2];
-	int err;
 
 	err = st_lsm6dsx_set_enable(sensor, true);
 	if (err < 0)
 		return err;
 
-	msleep(120);
+	delay = 1000000 / sensor->odr;
+	usleep_range(delay, 2 * delay);
 
 	err = sensor->hw->tf->read(sensor->hw->dev, addr, sizeof(data), data);
 	if (err < 0)
@@ -431,14 +433,6 @@ static int st_lsm6dsx_write_raw(struct iio_dev *iio_dev,
 	return err;
 }
 
-static int st_lsm6dsx_validate_trigger(struct iio_dev *iio_dev,
-				       struct iio_trigger *trig)
-{
-	struct st_lsm6dsx_sensor *sensor = iio_priv(iio_dev);
-
-	return sensor->trig == trig ? 0 : -EINVAL;
-}
-
 static ssize_t
 st_lsm6dsx_sysfs_sampling_frequency_avl(struct device *dev,
 					struct device_attribute *attr,
@@ -493,7 +487,6 @@ static const struct iio_info st_lsm6dsx_acc_info = {
 	.attrs = &st_lsm6dsx_acc_attribute_group,
 	.read_raw = st_lsm6dsx_read_raw,
 	.write_raw = st_lsm6dsx_write_raw,
-	.validate_trigger = st_lsm6dsx_validate_trigger,
 };
 
 static struct attribute *st_lsm6dsx_gyro_attributes[] = {
@@ -545,6 +538,13 @@ static int st_lsm6dsx_init_device(struct st_lsm6dsx_hw *hw)
 	if (err < 0)
 		return err;
 
+	/* XXX: remove */
+	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DX_REG_INT1_ADDR,
+					 ST_LSM6DSX_REG_ACC_DRDY_IRQ_MASK |
+					 ST_LSM6DSX_REG_GYRO_DRDY_IRQ_MASK, 3);
+	if (err < 0)
+		return err;
+
 	/* redirect INT2 on INT1 */
 	return st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_INT2_ON_INT1_ADDR,
 					  ST_LSM6DSX_REG_INT2_ON_INT1_MASK, 1);
@@ -553,8 +553,8 @@ static int st_lsm6dsx_init_device(struct st_lsm6dsx_hw *hw)
 static struct iio_dev *st_lsm6dsx_alloc_iiodev(struct st_lsm6dsx_hw *hw,
 					       enum st_lsm6dsx_sensor_id id)
 {
-	struct iio_dev *iio_dev;
 	struct st_lsm6dsx_sensor *sensor;
+	struct iio_dev *iio_dev;
 
 	iio_dev = devm_iio_device_alloc(hw->dev, sizeof(*sensor));
 	if (!iio_dev)
@@ -618,10 +618,6 @@ int st_lsm6dsx_probe(struct st_lsm6dsx_hw *hw)
 
 	if (hw->irq > 0) {
 		err = st_lsm6dsx_allocate_buffers(hw);
-		if (err < 0)
-			return err;
-
-		err = st_lsm6dsx_allocate_triggers(hw);
 		if (err < 0)
 			return err;
 	}

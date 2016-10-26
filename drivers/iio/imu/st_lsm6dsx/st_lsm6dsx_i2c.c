@@ -19,8 +19,8 @@
 
 static int st_lsm6dsx_i2c_read(struct device *dev, u8 addr, int len, u8 *data)
 {
-	struct i2c_msg msg[2];
 	struct i2c_client *client = to_i2c_client(dev);
+	struct i2c_msg msg[2];
 
 	msg[0].addr = client->addr;
 	msg[0].flags = client->flags;
@@ -37,9 +37,9 @@ static int st_lsm6dsx_i2c_read(struct device *dev, u8 addr, int len, u8 *data)
 
 static int st_lsm6dsx_i2c_write(struct device *dev, u8 addr, int len, u8 *data)
 {
-	u8 send[len + 1];
-	struct i2c_msg msg;
 	struct i2c_client *client = to_i2c_client(dev);
+	struct i2c_msg msg;
+	u8 send[len + 1];
 
 	send[0] = addr;
 	memcpy(&send[1], data, len * sizeof(u8));
@@ -60,10 +60,9 @@ static const struct st_lsm6dsx_transfer_function st_lsm6dsx_transfer_fn = {
 static int st_lsm6dsx_i2c_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
-	int err;
 	struct st_lsm6dsx_hw *hw;
 
-	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
+	hw = devm_kzalloc(&client->dev, sizeof(*hw), GFP_KERNEL);
 	if (!hw)
 		return -ENOMEM;
 
@@ -73,11 +72,7 @@ static int st_lsm6dsx_i2c_probe(struct i2c_client *client,
 	hw->irq = client->irq;
 	hw->tf = &st_lsm6dsx_transfer_fn;
 
-	err = st_lsm6dsx_probe(hw);
-	if (err < 0)
-		kfree(hw);
-
-	return err;
+	return st_lsm6dsx_probe(hw);
 }
 
 static const struct of_device_id st_lsm6dsx_i2c_of_match[] = {

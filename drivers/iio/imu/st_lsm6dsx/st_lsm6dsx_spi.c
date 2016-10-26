@@ -22,9 +22,9 @@
 static int st_lsm6dsx_spi_read(struct device *dev, u8 addr, int len,
 			       u8 *data)
 {
-	int err;
 	struct spi_device *spi = to_spi_device(dev);
 	struct st_lsm6dsx_hw *hw = spi_get_drvdata(spi);
+	int err;
 
 	struct spi_transfer xfers[] = {
 		{
@@ -77,10 +77,9 @@ static const struct st_lsm6dsx_transfer_function st_lsm6dsx_transfer_fn = {
 
 static int st_lsm6dsx_spi_probe(struct spi_device *spi)
 {
-	int err;
 	struct st_lsm6dsx_hw *hw;
 
-	hw = kzalloc(sizeof(*hw), GFP_KERNEL);
+	hw = devm_kzalloc(&spi->dev, sizeof(*hw), GFP_KERNEL);
 	if (!hw)
 		return -ENOMEM;
 
@@ -90,11 +89,7 @@ static int st_lsm6dsx_spi_probe(struct spi_device *spi)
 	hw->irq = spi->irq;
 	hw->tf = &st_lsm6dsx_transfer_fn;
 
-	err = st_lsm6dsx_probe(hw);
-	if (err < 0)
-		kfree(hw);
-
-	return err;
+	return st_lsm6dsx_probe(hw);
 }
 
 static const struct of_device_id st_lsm6dsx_spi_of_match[] = {
