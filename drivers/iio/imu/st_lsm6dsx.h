@@ -44,7 +44,6 @@ enum st_lsm6dsx_sensor_id {
 struct st_lsm6dsx_sensor {
 	enum st_lsm6dsx_sensor_id id;
 	struct st_lsm6dsx_hw *hw;
-	struct iio_trigger *trig;
 
 	u16 odr;
 	u32 gain;
