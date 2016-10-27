@@ -18,9 +18,12 @@
 
 #include "st_lsm6dsx.h"
 
-#define ST_LSM6DX_REG_INT1_ADDR			0x0d
+#define ST_LSM6DSX_REG_ACC_DEC_MASK		0x07
+#define ST_LSM6DSX_REG_GYRO_DEC_MASK		0x38
+#define ST_LSM6DSX_REG_INT1_ADDR		0x0d
 #define ST_LSM6DSX_REG_ACC_DRDY_IRQ_MASK	0x01
 #define ST_LSM6DSX_REG_GYRO_DRDY_IRQ_MASK	0x02
+#define ST_LSM6DSX_REG_FIFO_FTH_IRQ_MASK	0x08
 #define ST_LSM6DSX_REG_WHOAMI_ADDR		0x0f
 #define ST_LSM6DSX_REG_RESET_ADDR		0x12
 #define ST_LSM6DSX_REG_RESET_MASK		0x01
@@ -333,18 +336,33 @@ static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
 	return 0;
 }
 
-int st_lsm6dsx_set_enable(struct st_lsm6dsx_sensor *sensor, bool enable)
+int st_lsm6dsx_sensor_set_enable(struct st_lsm6dsx_sensor *sensor)
+{
+	int err;
+
+	err = st_lsm6dsx_set_odr(sensor, sensor->odr);
+	if (err < 0)
+		return err;
+
+	sensor->hw->enable_mask |= BIT(sensor->id);
+
+	return 0;
+}
+
+int st_lsm6dsx_sensor_set_disable(struct st_lsm6dsx_sensor *sensor)
 {
 	enum st_lsm6dsx_sensor_id id = sensor->id;
 	int err;
 
-	if (enable)
-		err = st_lsm6dsx_set_odr(sensor, sensor->odr);
-	else
-		err = st_lsm6dsx_write_with_mask(sensor->hw,
-						 st_lsm6dsx_odr_table[id].addr,
-						 st_lsm6dsx_odr_table[id].mask, 0);
-	return err < 0 ? err : 0;
+	err = st_lsm6dsx_write_with_mask(sensor->hw,
+					 st_lsm6dsx_odr_table[id].addr,
+					 st_lsm6dsx_odr_table[id].mask, 0);
+	if (err < 0)
+		return err;
+
+	sensor->hw->enable_mask &= ~BIT(id);
+
+	return 0;
 }
 
 static int st_lsm6dsx_read_oneshot(struct st_lsm6dsx_sensor *sensor,
@@ -353,7 +371,7 @@ static int st_lsm6dsx_read_oneshot(struct st_lsm6dsx_sensor *sensor,
 	int err, delay;
 	u8 data[2];
 
-	err = st_lsm6dsx_set_enable(sensor, true);
+	err = st_lsm6dsx_sensor_set_enable(sensor);
 	if (err < 0)
 		return err;
 
@@ -364,7 +382,7 @@ static int st_lsm6dsx_read_oneshot(struct st_lsm6dsx_sensor *sensor,
 	if (err < 0)
 		return err;
 
-	st_lsm6dsx_set_enable(sensor, false);
+	st_lsm6dsx_sensor_set_disable(sensor);
 
 	*val = (s16)get_unaligned_le16(data);
 
@@ -538,10 +556,8 @@ static int st_lsm6dsx_init_device(struct st_lsm6dsx_hw *hw)
 	if (err < 0)
 		return err;
 
-	/* XXX: remove */
-	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DX_REG_INT1_ADDR,
-					 ST_LSM6DSX_REG_ACC_DRDY_IRQ_MASK |
-					 ST_LSM6DSX_REG_GYRO_DRDY_IRQ_MASK, 3);
+	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_INT1_ADDR,
+					 ST_LSM6DSX_REG_FIFO_FTH_IRQ_MASK, 1);
 	if (err < 0)
 		return err;
 
@@ -579,6 +595,7 @@ static struct iio_dev *st_lsm6dsx_alloc_iiodev(struct st_lsm6dsx_hw *hw,
 
 		sensor->drdy_data_mask = ST_LSM6DSX_DATA_ACC_AVL_MASK;
 		sensor->drdy_irq_mask = ST_LSM6DSX_REG_ACC_DRDY_IRQ_MASK;
+		sensor->decimator_mask = ST_LSM6DSX_REG_ACC_DEC_MASK;
 		break;
 	case ST_LSM6DSX_ID_GYRO:
 		iio_dev->channels = st_lsm6dsx_gyro_channels;
@@ -588,6 +605,7 @@ static struct iio_dev *st_lsm6dsx_alloc_iiodev(struct st_lsm6dsx_hw *hw,
 
 		sensor->drdy_data_mask = ST_LSM6DSX_DATA_GYRO_AVL_MASK;
 		sensor->drdy_irq_mask = ST_LSM6DSX_REG_GYRO_DRDY_IRQ_MASK;
+		sensor->decimator_mask = ST_LSM6DSX_REG_GYRO_DEC_MASK;
 		break;
 	default:
 		return NULL;

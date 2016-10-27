@@ -15,7 +15,83 @@
 
 #include "st_lsm6dsx.h"
 
+#define ST_LSM6DSX_REG_FIFO_DEC_ADDR	0x08
+#define ST_LSM6DSX_REG_FIFO_MODE_ADDR	0x0a
 #define ST_LSM6DX_REG_DATA_AVL_ADDR	0x1e
+
+#define ST_LSM6DSX_FIFO_MAX_ODR		0x40
+
+static int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
+				    enum st_lsm6dsx_fifo_mode fifo_mode)
+{
+	u8 data;
+
+	switch (fifo_mode) {
+	case ST_LSM6DSX_FIFO_BYPASS:
+		data = fifo_mode;
+		break;
+	case ST_LSM6DSX_FIFO_CONT:
+		data = fifo_mode | ST_LSM6DSX_FIFO_MAX_ODR;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return hw->tf->write(hw->dev, ST_LSM6DSX_REG_FIFO_MODE_ADDR,
+			     sizeof(data), &data);
+}
+
+static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
+{
+	struct st_lsm6dsx_sensor *sensor;
+	int err, i, max_odr = 0;
+	u8 decimator;
+
+	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
+		sensor = iio_priv(hw->iio_devs[i]);
+
+		if ((hw->enable_mask & BIT(sensor->id)) &&
+		    sensor->odr > max_odr)
+			max_odr = sensor->odr;
+	}
+
+	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
+		decimator = max_odr / sensor->odr;
+		err = st_lsm6dsx_write_with_mask(hw,
+						 ST_LSM6DSX_REG_FIFO_DEC_ADDR,
+						 sensor->decimator_mask,
+						 decimator);
+		if (err < 0)
+			return err;
+	}
+
+	return 0;
+}
+
+static int st_lsm6dsx_update_fifo(struct st_lsm6dsx_sensor *sensor,
+				  bool enable)
+{
+	struct st_lsm6dsx_hw *hw = sensor->hw;
+	int err;
+
+	err = st_lsm6dsx_set_fifo_mode(hw, ST_LSM6DSX_FIFO_BYPASS);
+	if (err < 0)
+		return err;
+
+	err = enable ? st_lsm6dsx_sensor_set_enable(sensor)
+		     : st_lsm6dsx_sensor_set_disable(sensor);
+	if (err < 0)
+		return err;
+
+	err = st_lsm6dsx_update_decimators(hw);
+	if (err < 0)
+		return err;
+
+	if (hw->enable_mask)
+		err = st_lsm6dsx_set_fifo_mode(hw, ST_LSM6DSX_FIFO_CONT);
+
+	return err;
+}
 
 static irqreturn_t st_lsm6dsx_ring_handler_thread(int irq, void *private)
 {
@@ -53,12 +129,12 @@ static irqreturn_t st_lsm6dsx_ring_handler_thread(int irq, void *private)
 
 static int st_lsm6dsx_buffer_preenable(struct iio_dev *iio_dev)
 {
-	return st_lsm6dsx_set_enable(iio_priv(iio_dev), true);
+	return st_lsm6dsx_update_fifo(iio_priv(iio_dev), true);
 }
 
 static int st_lsm6dsx_buffer_postdisable(struct iio_dev *iio_dev)
 {
-	return st_lsm6dsx_set_enable(iio_priv(iio_dev), false);
+	return st_lsm6dsx_update_fifo(iio_priv(iio_dev), false);
 }
 
 static const struct iio_buffer_setup_ops st_lsm6dsx_buffer_ops = {
