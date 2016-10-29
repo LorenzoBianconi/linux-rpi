@@ -336,7 +336,7 @@ static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
 	return 0;
 }
 
-int st_lsm6dsx_sensor_set_enable(struct st_lsm6dsx_sensor *sensor)
+int st_lsm6dsx_sensor_enable(struct st_lsm6dsx_sensor *sensor)
 {
 	int err;
 
@@ -349,7 +349,7 @@ int st_lsm6dsx_sensor_set_enable(struct st_lsm6dsx_sensor *sensor)
 	return 0;
 }
 
-int st_lsm6dsx_sensor_set_disable(struct st_lsm6dsx_sensor *sensor)
+int st_lsm6dsx_sensor_disable(struct st_lsm6dsx_sensor *sensor)
 {
 	enum st_lsm6dsx_sensor_id id = sensor->id;
 	int err;
@@ -371,7 +371,7 @@ static int st_lsm6dsx_read_oneshot(struct st_lsm6dsx_sensor *sensor,
 	int err, delay;
 	u8 data[2];
 
-	err = st_lsm6dsx_sensor_set_enable(sensor);
+	err = st_lsm6dsx_sensor_enable(sensor);
 	if (err < 0)
 		return err;
 
@@ -382,7 +382,7 @@ static int st_lsm6dsx_read_oneshot(struct st_lsm6dsx_sensor *sensor,
 	if (err < 0)
 		return err;
 
-	st_lsm6dsx_sensor_set_disable(sensor);
+	st_lsm6dsx_sensor_disable(sensor);
 
 	*val = (s16)get_unaligned_le16(data);
 
@@ -451,6 +451,35 @@ static int st_lsm6dsx_write_raw(struct iio_dev *iio_dev,
 	return err;
 }
 
+static int st_lsm6dsx_set_watermark(struct iio_dev *iio_dev, unsigned val)
+{
+	struct st_lsm6dsx_sensor *sensor = iio_priv(iio_dev);
+	struct st_lsm6dsx_hw *hw = sensor->hw;
+	int err;
+
+	if (val < 1 || val > ST_LSM6DSX_MAX_FIFO_LEN)
+		return -EINVAL;
+
+	mutex_lock(&iio_dev->mlock);
+
+	if (hw->fifo_mode != ST_LSM6DSX_FIFO_BYPASS) {
+		err = st_lsm6dsx_flush_fifo(hw);
+		if (err < 0)
+			goto out;
+	}
+
+	err = st_lsm6dsx_update_watermark(sensor, val);
+	if (err < 0)
+		goto out;
+
+	sensor->watermark = val;
+
+out:
+	mutex_unlock(&iio_dev->mlock);
+
+	return err;
+}
+
 static ssize_t
 st_lsm6dsx_sysfs_sampling_frequency_avl(struct device *dev,
 					struct device_attribute *attr,
@@ -505,6 +534,7 @@ static const struct iio_info st_lsm6dsx_acc_info = {
 	.attrs = &st_lsm6dsx_acc_attribute_group,
 	.read_raw = st_lsm6dsx_read_raw,
 	.write_raw = st_lsm6dsx_write_raw,
+	.hwfifo_set_watermark = st_lsm6dsx_set_watermark,
 };
 
 static struct attribute *st_lsm6dsx_gyro_attributes[] = {
@@ -556,6 +586,7 @@ static int st_lsm6dsx_init_device(struct st_lsm6dsx_hw *hw)
 	if (err < 0)
 		return err;
 
+	/* enable FIFO watermak interrupt */
 	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_INT1_ADDR,
 					 ST_LSM6DSX_REG_FIFO_FTH_IRQ_MASK, 1);
 	if (err < 0)
