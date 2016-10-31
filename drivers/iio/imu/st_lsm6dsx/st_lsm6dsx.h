@@ -18,7 +18,6 @@
 #define ST_LSM6DSM_DEV_NAME	"lsm6dsm"
 
 #define ST_LSM6DSX_SAMPLE_SIZE		6
-#define ST_LSM6DSX_MAX_FIFO_TH		1092
 #define ST_LSM6DSX_MAX_FIFO_SIZE	4096
 #define ST_LSM6DSX_MAX_FIFO_LEN		(ST_LSM6DSX_MAX_FIFO_SIZE /	\
 					 ST_LSM6DSX_SAMPLE_SIZE)
@@ -59,9 +58,6 @@ struct st_lsm6dsx_sensor {
 
 	u16 watermark;
 	u8 sip;
-
-	u8 drdy_data_mask;
-	u8 drdy_irq_mask;
 	u8 decimator_mask;
 };
 
@@ -73,6 +69,7 @@ struct st_lsm6dsx_hw {
 
 	enum st_lsm6dsx_fifo_mode fifo_mode;
 	u8 enable_mask;
+	u8 sip;
 
 	struct iio_dev *iio_devs[ST_LSM6DSX_ID_MAX];
 
@@ -89,7 +86,6 @@ int st_lsm6dsx_sensor_disable(struct st_lsm6dsx_sensor *sensor);
 int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_hw *hw);
 int st_lsm6dsx_write_with_mask(struct st_lsm6dsx_hw *hw, u8 addr, u8 mask,
 			       u8 val);
-int st_lsm6dsx_flush_fifo(struct st_lsm6dsx_hw *hw);
 int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor,
 				u16 watermark);
 

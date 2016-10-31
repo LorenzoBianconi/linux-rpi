@@ -454,19 +454,12 @@ static int st_lsm6dsx_write_raw(struct iio_dev *iio_dev,
 static int st_lsm6dsx_set_watermark(struct iio_dev *iio_dev, unsigned val)
 {
 	struct st_lsm6dsx_sensor *sensor = iio_priv(iio_dev);
-	struct st_lsm6dsx_hw *hw = sensor->hw;
 	int err;
 
 	if (val < 1 || val > ST_LSM6DSX_MAX_FIFO_LEN)
 		return -EINVAL;
 
 	mutex_lock(&iio_dev->mlock);
-
-	if (hw->fifo_mode != ST_LSM6DSX_FIFO_BYPASS) {
-		err = st_lsm6dsx_flush_fifo(hw);
-		if (err < 0)
-			goto out;
-	}
 
 	err = st_lsm6dsx_update_watermark(sensor, val);
 	if (err < 0)
@@ -624,8 +617,6 @@ static struct iio_dev *st_lsm6dsx_alloc_iiodev(struct st_lsm6dsx_hw *hw,
 		iio_dev->name = "lsm6dsx_accel";
 		iio_dev->info = &st_lsm6dsx_acc_info;
 
-		sensor->drdy_data_mask = ST_LSM6DSX_DATA_ACC_AVL_MASK;
-		sensor->drdy_irq_mask = ST_LSM6DSX_REG_ACC_DRDY_IRQ_MASK;
 		sensor->decimator_mask = ST_LSM6DSX_REG_ACC_DEC_MASK;
 		break;
 	case ST_LSM6DSX_ID_GYRO:
@@ -634,8 +625,6 @@ static struct iio_dev *st_lsm6dsx_alloc_iiodev(struct st_lsm6dsx_hw *hw,
 		iio_dev->name = "lsm6dsx_gyro";
 		iio_dev->info = &st_lsm6dsx_gyro_info;
 
-		sensor->drdy_data_mask = ST_LSM6DSX_DATA_GYRO_AVL_MASK;
-		sensor->drdy_irq_mask = ST_LSM6DSX_REG_GYRO_DRDY_IRQ_MASK;
 		sensor->decimator_mask = ST_LSM6DSX_REG_GYRO_DEC_MASK;
 		break;
 	default:
