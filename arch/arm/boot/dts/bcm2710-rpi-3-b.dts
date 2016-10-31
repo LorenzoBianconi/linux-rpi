@@ -156,9 +156,9 @@
 		interrupt-parent = <&gpio>;
 		interrupts = <26 0x1>;
 	};*/
-	lsm6dsm@6a {
+	lsm6dsm@6b {
 		compatible = "st,lsm6dsm";
-		reg = <0x6a>;
+		reg = <0x6b>;
 		interrupt-parent = <&gpio>;
 		interrupts = <26 0x4>;
 	};
