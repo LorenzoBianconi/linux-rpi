@@ -27,7 +27,7 @@
 #define ST_LSM6DSX_REG_DATA_AVL_ADDR		0x1e
 #define ST_LSM6DSX_REG_FIFO_OUTL_ADDR		0x3e
 
-#define ST_LSM6DSX_FIFO_MAX_ODR			0x40
+#define ST_LSM6DSX_FIFO_MAX_ODR			0xa0
 
 static int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 				    enum st_lsm6dsx_fifo_mode fifo_mode)
@@ -186,7 +186,7 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 						hw->iio_devs[ST_LSM6DSX_ID_GYRO],
 						buffer, iio_get_time_ns());
 				gyro_sip--;
-				i++;
+				i += ST_LSM6DSX_SAMPLE_SIZE;
 			}
 
 			if (acc_sip > 0) {
@@ -201,7 +201,7 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 						hw->iio_devs[ST_LSM6DSX_ID_ACC],
 						buffer, iio_get_time_ns());
 				acc_sip--;
-				i++;
+				i += ST_LSM6DSX_SAMPLE_SIZE;
 			}
 		}
 	}
