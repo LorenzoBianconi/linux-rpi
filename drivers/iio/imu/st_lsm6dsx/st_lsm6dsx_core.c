@@ -459,18 +459,13 @@ static int st_lsm6dsx_set_watermark(struct iio_dev *iio_dev, unsigned val)
 	if (val < 1 || val > ST_LSM6DSX_MAX_FIFO_LEN)
 		return -EINVAL;
 
-	mutex_lock(&iio_dev->mlock);
-
 	err = st_lsm6dsx_update_watermark(sensor, val);
 	if (err < 0)
-		goto out;
+		return err;
 
 	sensor->watermark = val;
 
-out:
-	mutex_unlock(&iio_dev->mlock);
-
-	return err;
+	return 0;
 }
 
 static ssize_t
@@ -609,6 +604,7 @@ static struct iio_dev *st_lsm6dsx_alloc_iiodev(struct st_lsm6dsx_hw *hw,
 	sensor->hw = hw;
 	sensor->odr = st_lsm6dsx_odr_table[id].odr_avl[0].hz;
 	sensor->gain = st_lsm6dsx_fs_table[id].fs_avl[0].gain;
+	sensor->watermark = 1;
 
 	switch (id) {
 	case ST_LSM6DSX_ID_ACC:
