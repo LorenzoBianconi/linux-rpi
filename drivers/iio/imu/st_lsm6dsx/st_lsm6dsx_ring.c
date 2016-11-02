@@ -29,6 +29,80 @@
 
 #define ST_LSM6DSX_FIFO_MAX_ODR			0xa0
 
+struct st_lsm6dsx_dec_entry {
+	u8 decimator;
+	u8 val;
+};
+
+static const struct st_lsm6dsx_dec_entry st_lsm6dsx_dec_table[] = {
+	{  0, 0x0 },
+	{  1, 0x1 },
+	{  2, 0x2 },
+	{  3, 0x3 },
+	{  4, 0x4 },
+	{  8, 0x5 },
+	{ 16, 0x6 },
+	{ 32, 0x7 },
+};
+
+static int st_lsm6dsx_get_decimator(u8 val)
+{
+	int i, max_size = ARRAY_SIZE(st_lsm6dsx_dec_table);
+
+	for (i = 0; i < max_size; i++)
+		if (st_lsm6dsx_dec_table[i].decimator == val)
+			break;
+
+	return i == max_size ? 0 : st_lsm6dsx_dec_table[i].val;
+}
+
+static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
+{
+	u32 sip = 0, max_odr = 0, min_odr = ~0;
+	struct st_lsm6dsx_sensor *sensor;
+	int err, i;
+	u8 data;
+
+	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
+		sensor = iio_priv(hw->iio_devs[i]);
+
+		if (!(hw->enable_mask & BIT(sensor->id)))
+			continue;
+
+		if (sensor->odr > max_odr)
+			max_odr = sensor->odr;
+		if (sensor->odr < min_odr)
+			min_odr = sensor->odr;
+	}
+
+	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
+		sensor = iio_priv(hw->iio_devs[i]);
+
+		/* update fifo decimators and sample in pattern */
+		if (hw->enable_mask & BIT(sensor->id)) {
+			u8 decimator;
+
+			decimator = max_odr / sensor->odr;
+			data = st_lsm6dsx_get_decimator(decimator);
+
+			sensor->sip = sensor->odr / min_odr;
+			sip += sensor->sip;
+		} else {
+			data = 0;
+			sensor->sip = 0;
+		}
+
+		err = st_lsm6dsx_write_with_mask(hw,
+						 ST_LSM6DSX_REG_FIFO_DEC_ADDR,
+						 sensor->decimator_mask, data);
+		if (err < 0)
+			return err;
+	}
+	hw->sip = sip;
+
+	return 0;
+}
+
 static int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 				    enum st_lsm6dsx_fifo_mode fifo_mode)
 {
@@ -56,53 +130,12 @@ static int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 	return 0;
 }
 
-static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
-{
-	u32 sip = 0, max_odr = 0, min_odr = ~0;
-	struct st_lsm6dsx_sensor *sensor;
-	u8 decimator;
-	int err, i;
-
-	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
-		sensor = iio_priv(hw->iio_devs[i]);
-
-		if (!(hw->enable_mask & BIT(sensor->id)))
-			continue;
-
-		if (sensor->odr > max_odr)
-			max_odr = sensor->odr;
-		if (sensor->odr < min_odr)
-			min_odr = sensor->odr;
-	}
-
-	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
-		sensor = iio_priv(hw->iio_devs[i]);
-
-		if (!(hw->enable_mask & BIT(sensor->id)))
-			continue;
-
-		/* update fifo decimators */
-		decimator = max_odr / sensor->odr;
-		err = st_lsm6dsx_write_with_mask(hw,
-						 ST_LSM6DSX_REG_FIFO_DEC_ADDR,
-						 sensor->decimator_mask,
-						 decimator);
-		if (err < 0)
-			return err;
-
-		/* compute sensor samples in pattern */
-		sensor->sip = sensor->odr / min_odr;
-		sip += sensor->sip;
-	}
-	hw->sip = sip;
-
-	return 0;
-}
 
 int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor,
 				u16 watermark)
 {
-	u16 fifo_watermark, sip = 0, cur_watermark, min_pattern = ~0;
+	u16 fifo_watermark, sip = 0, cur_watermark;
+	u16 cur_pattern, min_pattern = ~0;
 	struct st_lsm6dsx_hw *hw = sensor->hw;
 	struct st_lsm6dsx_sensor *cur_sensor;
 	int i, err;
@@ -117,8 +150,10 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor,
 		sip += cur_sensor->sip;
 		cur_watermark = (cur_sensor == sensor) ? watermark
 						       : sensor->watermark;
-		min_pattern = min_t(u16, cur_watermark / cur_sensor->sip,
-				    min_pattern);
+		cur_pattern = cur_watermark / cur_sensor->sip;
+		if (!cur_pattern)
+			cur_pattern = 1;
+		min_pattern = min_t(u16, cur_pattern, min_pattern);
 	}
 
 	fifo_watermark = min_pattern * sip * ST_LSM6DSX_SAMPLE_SIZE;
@@ -149,7 +184,7 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 	u16 fifo_depth, fifo_len;
 	u8 fifo_status[2];
 
-	if (!hw->sip)
+	if (WARN_ONCE(!hw->sip))
 		return 0;
 
 	err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_FIFO_DIFFL_ADDR,
@@ -162,7 +197,7 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 
 	/* leave last sample in the FIFO to guarantee proper alignment */
 	fifo_status[1] &= ST_LSM6DSX_FIFO_DIFF_MASK;
-	fifo_depth = (u16)get_unaligned_le16(fifo_status) - 1;
+	fifo_depth = (u16)get_unaligned_le16(fifo_status);
 
 	fifo_len = (fifo_depth / hw->sip) * hw->sip;
 
