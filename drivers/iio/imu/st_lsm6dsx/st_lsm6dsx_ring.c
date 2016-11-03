@@ -21,13 +21,13 @@
 #define ST_LSM6DSX_FIFO_TH_MASK			0x0fff
 #define ST_LSM6DSX_REG_FIFO_DEC_ADDR		0x08
 #define ST_LSM6DSX_REG_FIFO_MODE_ADDR		0x0a
+#define ST_LSM6DSX_FIFO_MODE_MASK		0x07
+#define ST_LSM6DSX_FIFO_ODR_MASK		0x78
 #define ST_LSM6DSX_REG_FIFO_DIFFL_ADDR		0x3a
 #define ST_LSM6DSX_FIFO_DIFF_MASK		0x0f
 #define ST_LSM6DSX_FIFO_EMPTY_MASK		0x10
 #define ST_LSM6DSX_REG_DATA_AVL_ADDR		0x1e
 #define ST_LSM6DSX_REG_FIFO_OUTL_ADDR		0x3e
-
-#define ST_LSM6DSX_FIFO_MAX_ODR			0xa0
 
 struct st_lsm6dsx_dec_entry {
 	u8 decimator;
@@ -45,7 +45,7 @@ static const struct st_lsm6dsx_dec_entry st_lsm6dsx_dec_table[] = {
 	{ 32, 0x7 },
 };
 
-static int st_lsm6dsx_get_decimator(u8 val)
+static int st_lsm6dsx_get_decimator_val(u8 val)
 {
 	int i, max_size = ARRAY_SIZE(st_lsm6dsx_dec_table);
 
@@ -56,12 +56,15 @@ static int st_lsm6dsx_get_decimator(u8 val)
 	return i == max_size ? 0 : st_lsm6dsx_dec_table[i].val;
 }
 
-static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
+static void st_lsm6dsx_get_max_min_odr(struct st_lsm6dsx_hw *hw,
+				       u16 *max_odr, u16 *max_idx,
+				       u16 *min_odr, u16 *min_idx)
 {
-	u32 sip = 0, max_odr = 0, min_odr = ~0;
 	struct st_lsm6dsx_sensor *sensor;
-	int err, i;
-	u8 data;
+	int i;
+
+	*max_odr = 0, *min_odr = ~0;
+	*max_idx = *min_idx = 0;
 
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
 		sensor = iio_priv(hw->iio_devs[i]);
@@ -69,11 +72,26 @@ static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
 		if (!(hw->enable_mask & BIT(sensor->id)))
 			continue;
 
-		if (sensor->odr > max_odr)
-			max_odr = sensor->odr;
-		if (sensor->odr < min_odr)
-			min_odr = sensor->odr;
+		if (sensor->odr > *max_odr) {
+			*max_odr = sensor->odr;
+			*max_idx = i;
+		}
+		if (sensor->odr < *min_odr) {
+			*min_odr = sensor->odr;
+			*min_idx = i;
+		}
 	}
+}
+
+static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
+{
+	u16 sip = 0, max_odr, min_odr, max_idx, min_idx;
+	struct st_lsm6dsx_sensor *sensor;
+	int err, i;
+	u8 data;
+
+	st_lsm6dsx_get_max_min_odr(hw, &max_odr, &max_idx,
+				   &min_odr, &min_idx);
 
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
 		sensor = iio_priv(hw->iio_devs[i]);
@@ -83,7 +101,7 @@ static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
 			u8 decimator;
 
 			decimator = max_odr / sensor->odr;
-			data = st_lsm6dsx_get_decimator(decimator);
+			data = st_lsm6dsx_get_decimator_val(decimator);
 
 			sensor->sip = sensor->odr / min_odr;
 			sip += sensor->sip;
@@ -103,6 +121,24 @@ static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
 	return 0;
 }
 
+static int st_lsm6dsx_set_fifo_odr(struct st_lsm6dsx_hw *hw)
+{
+	u16 max_odr, min_odr, max_idx, min_idx;
+	int err, val;
+
+	st_lsm6dsx_get_max_min_odr(hw, &max_odr, &max_idx,
+				   &min_odr, &min_idx);
+
+	val = st_lsm6dsx_get_odr_val(max_idx, max_odr);
+	if (val < 0)
+		return val;
+
+	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_FIFO_MODE_ADDR,
+					 ST_LSM6DSX_FIFO_ODR_MASK, val);
+
+	return err < 0 ? err : 0;
+}
+
 static int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 				    enum st_lsm6dsx_fifo_mode fifo_mode)
 {
@@ -111,17 +147,15 @@ static int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 
 	switch (fifo_mode) {
 	case ST_LSM6DSX_FIFO_BYPASS:
-		data = fifo_mode;
-		break;
 	case ST_LSM6DSX_FIFO_CONT:
-		data = fifo_mode | ST_LSM6DSX_FIFO_MAX_ODR;
+		data = fifo_mode;
 		break;
 	default:
 		return -EINVAL;
 	}
 
-	err = hw->tf->write(hw->dev, ST_LSM6DSX_REG_FIFO_MODE_ADDR,
-			    sizeof(data), &data);
+	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_FIFO_MODE_ADDR,
+					 ST_LSM6DSX_FIFO_MODE_MASK, data);
 	if (err < 0)
 		return err;
 
@@ -130,14 +164,13 @@ static int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 	return 0;
 }
 
-
 int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor,
 				u16 watermark)
 {
 	u16 fifo_watermark, sip = 0, cur_watermark;
-	u16 cur_pattern, min_pattern = ~0;
 	struct st_lsm6dsx_hw *hw = sensor->hw;
 	struct st_lsm6dsx_sensor *cur_sensor;
+	u16 cur_pattern, min_pattern = ~0;
 	int i, err;
 	u8 data;
 
@@ -149,7 +182,7 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor,
 
 		sip += cur_sensor->sip;
 		cur_watermark = (cur_sensor == sensor) ? watermark
-						       : sensor->watermark;
+						       : cur_sensor->watermark;
 		cur_pattern = cur_watermark / cur_sensor->sip;
 		if (!cur_pattern)
 			cur_pattern = 1;
@@ -280,6 +313,10 @@ static int st_lsm6dsx_update_fifo(struct st_lsm6dsx_sensor *sensor,
 		return err;
 
 	err = st_lsm6dsx_update_watermark(sensor, sensor->watermark);
+	if (err < 0)
+		return err;
+
+	err = st_lsm6dsx_set_fifo_odr(hw);
 	if (err < 0)
 		return err;
 

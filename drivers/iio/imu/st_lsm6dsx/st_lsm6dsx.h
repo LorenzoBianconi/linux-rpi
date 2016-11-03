@@ -22,8 +22,6 @@
 #define ST_LSM6DSX_MAX_FIFO_LEN		(ST_LSM6DSX_MAX_FIFO_SIZE /	\
 					 ST_LSM6DSX_SAMPLE_SIZE)
 
-#if defined(CONFIG_IIO_ST_LSM6DSX_SPI) || \
-	defined(CONFIG_IIO_ST_LSM6DSX_SPI_MODULE)
 #define ST_LSM6DSX_RX_MAX_LENGTH	8
 #define ST_LSM6DSX_TX_MAX_LENGTH	8
 
@@ -31,7 +29,6 @@ struct st_lsm6dsx_transfer_buffer {
 	u8 rx_buf[ST_LSM6DSX_RX_MAX_LENGTH];
 	u8 tx_buf[ST_LSM6DSX_TX_MAX_LENGTH] ____cacheline_aligned;
 };
-#endif /* CONFIG_IIO_ST_LSM6DSX_SPI */
 
 struct st_lsm6dsx_transfer_function {
 	int (*read)(struct device *dev, u8 addr, int len, u8 *data);
@@ -74,10 +71,7 @@ struct st_lsm6dsx_hw {
 	struct iio_dev *iio_devs[ST_LSM6DSX_ID_MAX];
 
 	const struct st_lsm6dsx_transfer_function *tf;
-#if defined(CONFIG_IIO_ST_LSM6DSX_SPI) || \
-	defined(CONFIG_IIO_ST_LSM6DSX_SPI_MODULE)
 	struct st_lsm6dsx_transfer_buffer tb;
-#endif /* CONFIG_IIO_ST_LSM6DSX_SPI */
 };
 
 int st_lsm6dsx_probe(struct st_lsm6dsx_hw *hw);
@@ -88,6 +82,7 @@ int st_lsm6dsx_write_with_mask(struct st_lsm6dsx_hw *hw, u8 addr, u8 mask,
 			       u8 val);
 int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor,
 				u16 watermark);
+int st_lsm6dsx_get_odr_val(enum st_lsm6dsx_sensor_id id, u16 odr);
 
 #endif /* ST_LSM6DSX_H */
 

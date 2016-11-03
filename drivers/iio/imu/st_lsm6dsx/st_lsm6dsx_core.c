@@ -311,20 +311,29 @@ static int st_lsm6dsx_set_fs(struct st_lsm6dsx_sensor *sensor, u32 gain)
 	return 0;
 }
 
-static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
+int st_lsm6dsx_get_odr_val(enum st_lsm6dsx_sensor_id id, u16 odr)
 {
-	enum st_lsm6dsx_sensor_id id = sensor->id;
-	int i, err;
-	u8 val;
+	int i;
 
 	for (i = 0; i < ST_LSM6DSX_ODR_LIST_SIZE; i++)
 		if (st_lsm6dsx_odr_table[id].odr_avl[i].hz == odr)
 			break;
 
-	if (i == ST_LSM6DSX_ODR_LIST_SIZE)
+	if (i < ST_LSM6DSX_ODR_LIST_SIZE)
+		return st_lsm6dsx_odr_table[id].odr_avl[i].val;
+	else
 		return -EINVAL;
+}
 
-	val = st_lsm6dsx_odr_table[id].odr_avl[i].val;
+static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
+{
+	enum st_lsm6dsx_sensor_id id = sensor->id;
+	int err, val;
+
+	val = st_lsm6dsx_get_odr_val(id, odr);
+	if (val < 0)
+		return val;
+
 	err = st_lsm6dsx_write_with_mask(sensor->hw,
 					 st_lsm6dsx_odr_table[id].addr,
 					 st_lsm6dsx_odr_table[id].mask, val);
@@ -540,6 +549,7 @@ static const struct iio_info st_lsm6dsx_gyro_info = {
 	.attrs = &st_lsm6dsx_gyro_attribute_group,
 	.read_raw = st_lsm6dsx_read_raw,
 	.write_raw = st_lsm6dsx_write_raw,
+	.hwfifo_set_watermark = st_lsm6dsx_set_watermark,
 };
 
 static const unsigned long st_lsm6dsx_available_scan_masks[] = {0x7, 0x0};
