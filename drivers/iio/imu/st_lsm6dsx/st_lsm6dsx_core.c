@@ -52,6 +52,9 @@
 #define ST_LSM6DSX_REG_GYRO_OUT_Y_L_ADDR	0x24
 #define ST_LSM6DSX_REG_GYRO_OUT_Z_L_ADDR	0x26
 
+#define ST_LSM6DSX_REG_WAKE_UP_DUR_ADDR		0x5c
+#define ST_LSM6DSX_TIMER_HR_MASK		0x10
+
 #define ST_LSM6DS3_WHOAMI			0x69
 #define ST_LSM6DSM_WHOAMI			0x6a
 
@@ -581,6 +584,12 @@ static int st_lsm6dsx_init_device(struct st_lsm6dsx_hw *hw)
 
 	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_ROUNDING_ADDR,
 					 ST_LSM6DSX_REG_ROUNDING_MASK, 1);
+	if (err < 0)
+		return err;
+
+	/* enable HR timer */
+	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_WAKE_UP_DUR_ADDR,
+					 ST_LSM6DSX_TIMER_HR_MASK, 1);
 	if (err < 0)
 		return err;
 
