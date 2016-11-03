@@ -217,7 +217,7 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 	u16 fifo_depth, fifo_len;
 	u8 fifo_status[2];
 
-	if (WARN_ONCE(!hw->sip))
+	if (WARN_ON_ONCE(!hw->sip))
 		return 0;
 
 	err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_FIFO_DIFFL_ADDR,
