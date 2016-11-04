@@ -33,8 +33,12 @@
 #define ST_LSM6DSX_REG_INT2_ON_INT1_MASK	0x20
 #define ST_LSM6DSX_REG_ROUNDING_ADDR		0x16
 #define ST_LSM6DSX_REG_ROUNDING_MASK		0x04
+#define ST_LSM6DSX_REG_TIMESTAMP_ADRR		0x19
+#define ST_LSM6DSX_TIMER_EN_MASK		0x20
 #define ST_LSM6DSX_REG_LIR_ADDR			0x58
 #define ST_LSM6DSX_REG_LIR_MASK			0x01
+#define ST_LSM6DSX_REG_TIMER_OVR_ADDR		0x5e
+#define ST_LSM6DSX_REG_TIMER_OVR_MASK		0x01
 
 #define ST_LSM6DSX_REG_ACC_ODR_ADDR		0x10
 #define ST_LSM6DSX_REG_ACC_ODR_MASK		0xf0
@@ -584,6 +588,12 @@ static int st_lsm6dsx_init_device(struct st_lsm6dsx_hw *hw)
 
 	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_ROUNDING_ADDR,
 					 ST_LSM6DSX_REG_ROUNDING_MASK, 1);
+	if (err < 0)
+		return err;
+
+	/* enable timestamp engine */
+	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_TIMESTAMP_ADRR,
+					 ST_LSM6DSX_TIMER_EN_MASK, 1);
 	if (err < 0)
 		return err;
 

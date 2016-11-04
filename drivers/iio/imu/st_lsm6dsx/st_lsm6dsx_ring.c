@@ -26,14 +26,14 @@
 #define ST_LSM6DSX_REG_FIFO_MODE_ADDR		0x0a
 #define ST_LSM6DSX_FIFO_MODE_MASK		0x07
 #define ST_LSM6DSX_FIFO_ODR_MASK		0x78
-#define ST_LSM6DSX_REG_TIMESTAMP_ADRR		0x19
-#define ST_LSM6DSX_TIMER_EN_MASK		0x20
 #define ST_LSM6DSX_REG_FIFO_DIFFL_ADDR		0x3a
 #define ST_LSM6DSX_FIFO_DIFF_MASK		0x0f
 #define ST_LSM6DSX_FIFO_EMPTY_MASK		0x10
 #define ST_LSM6DSX_REG_DATA_AVL_ADDR		0x1e
 #define ST_LSM6DSX_REG_FIFO_PATTERN_ADDR	0x3c
 #define ST_LSM6DSX_REG_FIFO_OUTL_ADDR		0x3e
+#define ST_LSM6DSX_REG_TS2_ADDR			0x42
+#define ST_LSM6DSX_TS_RESET_VAL			0xaa
 
 #define ST_LSM6DSX_TS_GAIN_HR			25000
 
@@ -127,6 +127,7 @@ static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
 	acc_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_ACC]);
 	gyro_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_GYRO]);
 
+	/* take into account timestamp samples */
 	if (gyro_sensor->sip > acc_sensor->sip)
 		hw->sip = 2 * gyro_sensor->sip + acc_sensor->sip;
 	else
@@ -159,11 +160,6 @@ static int st_lsm6dsx_set_fifo_timestamp(struct st_lsm6dsx_hw *hw, bool enable)
 
 	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_FIFO_THH_ADDR,
 					 ST_LSM6DSX_FIFO_PEDO_EN_MASK, enable);
-	if (err < 0)
-		return err;
-
-	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_TIMESTAMP_ADRR,
-					 ST_LSM6DSX_TIMER_EN_MASK, enable);
 	if (err < 0)
 		return err;
 
@@ -200,28 +196,27 @@ static int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 
 int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 {
+	u16 fifo_watermark = ~0, cur_watermark, min_watermark;
 	struct st_lsm6dsx_hw *hw = sensor->hw;
 	struct st_lsm6dsx_sensor *cur_sensor;
-	u16 fifo_watermark, cur_watermark;
-	u16 cur_pattern, min_pattern = ~0;
 	int i, err;
 	u8 data;
 
+	min_watermark = hw->sip * ST_LSM6DSX_SAMPLE_SIZE;
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
 		cur_sensor = iio_priv(hw->iio_devs[i]);
 
-		if (!cur_sensor->sip)
+		if (!(hw->enable_mask & BIT(cur_sensor->id)))
 			continue;
 
 		cur_watermark = (cur_sensor == sensor) ? watermark
 						       : cur_sensor->watermark;
-		cur_pattern = cur_watermark / cur_sensor->sip;
-		if (!cur_pattern)
-			cur_pattern = 1;
-		min_pattern = min_t(u16, cur_pattern, min_pattern);
+
+		if (cur_watermark < fifo_watermark)
+			fifo_watermark = cur_watermark;
 	}
 
-	fifo_watermark = min_pattern * hw->sip * ST_LSM6DSX_SAMPLE_SIZE;
+	fifo_watermark = max_t(u16, fifo_watermark, min_watermark);
 
 	mutex_lock(&hw->lock);
 
@@ -261,7 +256,6 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 	if (fifo_status[1] & ST_LSM6DSX_FIFO_EMPTY_MASK)
 		return 0;
 
-	/* leave last sample in the FIFO to guarantee proper alignment */
 	fifo_status[1] &= ST_LSM6DSX_FIFO_DIFF_MASK;
 	fifo_depth = (u16)get_unaligned_le16(fifo_status);
 
@@ -301,8 +295,19 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 			if (err < 0)
 				return err;
 
-			ts = (s64)((get_unaligned_le16(ts_buffer) << 16) +
-				   ts_buffer[3]) * ST_LSM6DSX_TS_GAIN_HR;
+			ts = (s64)((get_unaligned_le16(ts_buffer) << 8) +
+				   ts_buffer[3]);
+
+			/* reset timestamp counter */
+			if (ts == 0xffffff) {
+				u8 data = ST_LSM6DSX_TS_RESET_VAL;
+				err = hw->tf->write(hw->dev,
+						    ST_LSM6DSX_REG_TS2_ADDR,
+						    sizeof(data), &data);
+				if (err < 0)
+					return err;
+			}
+			ts *= ST_LSM6DSX_TS_GAIN_HR;
 
 			if (gyro_sip-- > 0) {
 				iio_push_to_buffers_with_timestamp(
