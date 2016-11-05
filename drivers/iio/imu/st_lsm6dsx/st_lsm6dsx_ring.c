@@ -196,13 +196,12 @@ static int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 
 int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 {
-	u16 fifo_watermark = ~0, cur_watermark, min_watermark;
+	u16 fifo_watermark = ~0, cur_watermark, fifo_depth;
 	struct st_lsm6dsx_hw *hw = sensor->hw;
 	struct st_lsm6dsx_sensor *cur_sensor;
 	int i, err;
 	u8 data;
 
-	min_watermark = hw->sip * ST_LSM6DSX_SAMPLE_SIZE;
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
 		cur_sensor = iio_priv(hw->iio_devs[i]);
 
@@ -216,7 +215,8 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 			fifo_watermark = cur_watermark;
 	}
 
-	fifo_watermark = max_t(u16, fifo_watermark, min_watermark);
+	fifo_watermark = max_t(u16, fifo_watermark, hw->sip);
+	fifo_depth = fifo_watermark * ST_LSM6DSX_SAMPLE_SIZE;
 
 	mutex_lock(&hw->lock);
 
@@ -225,11 +225,11 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 	if (err < 0)
 		goto out;
 
-	fifo_watermark = ((data & ~ST_LSM6DSX_FIFO_TH_MASK) << 8) |
-			 (fifo_watermark & ST_LSM6DSX_FIFO_TH_MASK);
+	fifo_depth = ((data & ~ST_LSM6DSX_FIFO_TH_MASK) << 8) |
+		      (fifo_depth & ST_LSM6DSX_FIFO_TH_MASK);
 
 	err = hw->tf->write(hw->dev, ST_LSM6DSX_REG_FIFO_THL_ADDR,
-			    sizeof(fifo_watermark), (u8 *)&fifo_watermark);
+			    sizeof(fifo_depth), (u8 *)&fifo_depth);
 out:
 	mutex_unlock(&hw->lock);
 
