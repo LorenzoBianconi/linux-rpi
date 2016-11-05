@@ -18,9 +18,6 @@
 #define ST_LSM6DSM_DEV_NAME	"lsm6dsm"
 
 #define ST_LSM6DSX_SAMPLE_SIZE		6
-#define ST_LSM6DSX_MAX_FIFO_SIZE	4096
-#define ST_LSM6DSX_MAX_FIFO_LEN		(ST_LSM6DSX_MAX_FIFO_SIZE /	\
-					 ST_LSM6DSX_SAMPLE_SIZE)
 
 #define ST_LSM6DSX_RX_MAX_LENGTH	16
 #define ST_LSM6DSX_TX_MAX_LENGTH	8
@@ -33,6 +30,17 @@ struct st_lsm6dsx_transfer_buffer {
 struct st_lsm6dsx_transfer_function {
 	int (*read)(struct device *dev, u8 addr, int len, u8 *data);
 	int (*write)(struct device *dev, u8 addr, int len, u8 *data);
+};
+
+struct st_lsm6dsx_reg {
+	u8 addr;
+	u8 mask;
+};
+
+struct st_lsm6dsx_settings {
+	u8 wai;
+	u16 max_fifo_size;
+	struct st_lsm6dsx_reg ts;
 };
 
 enum st_lsm6dsx_sensor_id {
@@ -71,6 +79,8 @@ struct st_lsm6dsx_hw {
 	u8 sip;
 
 	struct iio_dev *iio_devs[ST_LSM6DSX_ID_MAX];
+
+	const struct st_lsm6dsx_settings *settings;
 
 	const struct st_lsm6dsx_transfer_function *tf;
 	struct st_lsm6dsx_transfer_buffer tb;

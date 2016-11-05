@@ -33,8 +33,6 @@
 #define ST_LSM6DSX_REG_INT2_ON_INT1_MASK	0x20
 #define ST_LSM6DSX_REG_ROUNDING_ADDR		0x16
 #define ST_LSM6DSX_REG_ROUNDING_MASK		0x04
-#define ST_LSM6DSX_REG_TIMESTAMP_ADRR		0x19
-#define ST_LSM6DSX_TIMER_EN_MASK		0x20
 #define ST_LSM6DSX_REG_LIR_ADDR			0x58
 #define ST_LSM6DSX_REG_LIR_MASK			0x01
 #define ST_LSM6DSX_REG_TIMER_OVR_ADDR		0x5e
@@ -62,6 +60,14 @@
 #define ST_LSM6DS3_WHOAMI			0x69
 #define ST_LSM6DSM_WHOAMI			0x6a
 
+#define ST_LSM6DS3_MAX_FIFO_SIZE		8192
+#define ST_LSM6DSM_MAX_FIFO_SIZE		4096
+
+#define ST_LSM6DS3_REG_TIMESTAMP_ADRR		0x58
+#define ST_LSM6DS3_TIMER_EN_MASK		0x80
+#define ST_LSM6DSM_REG_TIMESTAMP_ADRR		0x19
+#define ST_LSM6DSM_TIMER_EN_MASK		0x20
+
 #define ST_LSM6DSX_ACC_FS_2G_GAIN		IIO_G_TO_M_S_2(61)
 #define ST_LSM6DSX_ACC_FS_4G_GAIN		IIO_G_TO_M_S_2(122)
 #define ST_LSM6DSX_ACC_FS_8G_GAIN		IIO_G_TO_M_S_2(244)
@@ -83,15 +89,16 @@ struct st_lsm6dsx_odr {
 
 #define ST_LSM6DSX_ODR_LIST_SIZE	6
 struct st_lsm6dsx_odr_table_entry {
-	u8 addr;
-	u8 mask;
+	struct st_lsm6dsx_reg reg;
 	struct st_lsm6dsx_odr odr_avl[ST_LSM6DSX_ODR_LIST_SIZE];
 };
 
 static const struct st_lsm6dsx_odr_table_entry st_lsm6dsx_odr_table[] = {
 	[ST_LSM6DSX_ID_ACC] = {
-		.addr = ST_LSM6DSX_REG_ACC_ODR_ADDR,
-		.mask = ST_LSM6DSX_REG_ACC_ODR_MASK,
+		.reg = {
+			.addr = ST_LSM6DSX_REG_ACC_ODR_ADDR,
+			.mask = ST_LSM6DSX_REG_ACC_ODR_MASK,
+		},
 		.odr_avl[0] = {  13, 0x01 },
 		.odr_avl[1] = {  26, 0x02 },
 		.odr_avl[2] = {  52, 0x03 },
@@ -100,8 +107,10 @@ static const struct st_lsm6dsx_odr_table_entry st_lsm6dsx_odr_table[] = {
 		.odr_avl[5] = { 416, 0x06 },
 	},
 	[ST_LSM6DSX_ID_GYRO] = {
-		.addr = ST_LSM6DSX_REG_GYRO_ODR_ADDR,
-		.mask = ST_LSM6DSX_REG_GYRO_ODR_MASK,
+		.reg = {
+			.addr = ST_LSM6DSX_REG_GYRO_ODR_ADDR,
+			.mask = ST_LSM6DSX_REG_GYRO_ODR_MASK,
+		},
 		.odr_avl[0] = {  13, 0x01 },
 		.odr_avl[1] = {  26, 0x02 },
 		.odr_avl[2] = {  52, 0x03 },
@@ -118,28 +127,50 @@ struct st_lsm6dsx_fs {
 
 #define ST_LSM6DSX_FS_LIST_SIZE		4
 struct st_lsm6dsx_fs_table_entry {
-	u8 addr;
-	u8 mask;
+	struct st_lsm6dsx_reg reg;
 	struct st_lsm6dsx_fs fs_avl[ST_LSM6DSX_FS_LIST_SIZE];
 };
 
 static const struct st_lsm6dsx_fs_table_entry st_lsm6dsx_fs_table[] = {
 	[ST_LSM6DSX_ID_ACC] = {
-		.addr = ST_LSM6DSX_REG_ACC_FS_ADDR,
-		.mask = ST_LSM6DSX_REG_ACC_FS_MASK,
+		.reg = {
+			.addr = ST_LSM6DSX_REG_ACC_FS_ADDR,
+			.mask = ST_LSM6DSX_REG_ACC_FS_MASK,
+		},
 		.fs_avl[0] = {  ST_LSM6DSX_ACC_FS_2G_GAIN, 0x0 },
 		.fs_avl[1] = {  ST_LSM6DSX_ACC_FS_4G_GAIN, 0x2 },
 		.fs_avl[2] = {  ST_LSM6DSX_ACC_FS_8G_GAIN, 0x3 },
 		.fs_avl[3] = { ST_LSM6DSX_ACC_FS_16G_GAIN, 0x1 },
 	},
 	[ST_LSM6DSX_ID_GYRO] = {
-		.addr = ST_LSM6DSX_REG_GYRO_FS_ADDR,
-		.mask = ST_LSM6DSX_REG_GYRO_FS_MASK,
+		.reg = {
+			.addr = ST_LSM6DSX_REG_GYRO_FS_ADDR,
+			.mask = ST_LSM6DSX_REG_GYRO_FS_MASK,
+		},
 		.fs_avl[0] = {  ST_LSM6DSX_GYRO_FS_245_GAIN, 0x0 },
 		.fs_avl[1] = {  ST_LSM6DSX_GYRO_FS_500_GAIN, 0x1 },
 		.fs_avl[2] = { ST_LSM6DSX_GYRO_FS_1000_GAIN, 0x2 },
 		.fs_avl[3] = { ST_LSM6DSX_GYRO_FS_2000_GAIN, 0x3 },
 	}
+};
+
+static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
+	{
+		.wai = ST_LSM6DS3_WHOAMI,
+		.max_fifo_size = ST_LSM6DS3_MAX_FIFO_SIZE,
+		.ts = {
+			.addr = ST_LSM6DS3_REG_TIMESTAMP_ADRR,
+			.mask = ST_LSM6DS3_TIMER_EN_MASK,
+		},
+	},
+	{
+		.wai = ST_LSM6DSM_WHOAMI,
+		.max_fifo_size = ST_LSM6DSM_MAX_FIFO_SIZE,
+		.ts = {
+			.addr = ST_LSM6DSM_REG_TIMESTAMP_ADRR,
+			.mask = ST_LSM6DSM_TIMER_EN_MASK,
+		},
+	},
 };
 
 static const struct iio_chan_spec st_lsm6dsx_acc_channels[] = {
@@ -274,8 +305,8 @@ out:
 
 static int st_lsm6dsx_check_whoami(struct st_lsm6dsx_hw *hw)
 {
+	int err, i;
 	u8 data;
-	int err;
 
 	err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_WHOAMI_ADDR, sizeof(data),
 			   &data);
@@ -284,8 +315,14 @@ static int st_lsm6dsx_check_whoami(struct st_lsm6dsx_hw *hw)
 		return err;
 	}
 
-	if (data != ST_LSM6DS3_WHOAMI &&
-	    data != ST_LSM6DSM_WHOAMI) {
+	for (i = 0; i < ARRAY_SIZE(st_lsm6dsx_sensor_settings); i++) {
+		if (data == st_lsm6dsx_sensor_settings[i].wai) {
+			hw->settings = &st_lsm6dsx_sensor_settings[i];
+			break;
+		}
+	}
+
+	if (i == ARRAY_SIZE(st_lsm6dsx_sensor_settings)) {
 		dev_err(hw->dev, "wrong whoami [%02x]\n", data);
 		return -ENODEV;
 	}
@@ -308,8 +345,9 @@ static int st_lsm6dsx_set_fs(struct st_lsm6dsx_sensor *sensor, u32 gain)
 
 	val = st_lsm6dsx_fs_table[id].fs_avl[i].val;
 	err = st_lsm6dsx_write_with_mask(sensor->hw,
-					 st_lsm6dsx_fs_table[id].addr,
-					 st_lsm6dsx_fs_table[id].mask, val);
+					 st_lsm6dsx_fs_table[id].reg.addr,
+					 st_lsm6dsx_fs_table[id].reg.mask,
+					 val);
 	if (err < 0)
 		return err;
 
@@ -342,8 +380,9 @@ static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
 		return val;
 
 	err = st_lsm6dsx_write_with_mask(sensor->hw,
-					 st_lsm6dsx_odr_table[id].addr,
-					 st_lsm6dsx_odr_table[id].mask, val);
+					 st_lsm6dsx_odr_table[id].reg.addr,
+					 st_lsm6dsx_odr_table[id].reg.mask,
+					 val);
 	if (err < 0)
 		return err;
 
@@ -371,8 +410,8 @@ int st_lsm6dsx_sensor_disable(struct st_lsm6dsx_sensor *sensor)
 	int err;
 
 	err = st_lsm6dsx_write_with_mask(sensor->hw,
-					 st_lsm6dsx_odr_table[id].addr,
-					 st_lsm6dsx_odr_table[id].mask, 0);
+					 st_lsm6dsx_odr_table[id].reg.addr,
+					 st_lsm6dsx_odr_table[id].reg.mask, 0);
 	if (err < 0)
 		return err;
 
@@ -470,9 +509,11 @@ static int st_lsm6dsx_write_raw(struct iio_dev *iio_dev,
 static int st_lsm6dsx_set_watermark(struct iio_dev *iio_dev, unsigned val)
 {
 	struct st_lsm6dsx_sensor *sensor = iio_priv(iio_dev);
-	int err;
+	struct st_lsm6dsx_hw *hw = sensor->hw;
+	int err, max_fifo_len;
 
-	if (val < 1 || val > ST_LSM6DSX_MAX_FIFO_LEN)
+	max_fifo_len = hw->settings->max_fifo_size / ST_LSM6DSX_SAMPLE_SIZE;
+	if (val < 1 || val > max_fifo_len)
 		return -EINVAL;
 
 	err = st_lsm6dsx_update_watermark(sensor, val);
@@ -592,8 +633,8 @@ static int st_lsm6dsx_init_device(struct st_lsm6dsx_hw *hw)
 		return err;
 
 	/* enable timestamp engine */
-	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_TIMESTAMP_ADRR,
-					 ST_LSM6DSX_TIMER_EN_MASK, 1);
+	err = st_lsm6dsx_write_with_mask(hw, hw->settings->ts.addr,
+					 hw->settings->ts.mask, 1);
 	if (err < 0)
 		return err;
 
