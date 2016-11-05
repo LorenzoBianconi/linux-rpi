@@ -150,14 +150,14 @@
 	pinctrl-0 = <&i2c1_pins>;
 	clock-frequency = <100000>;
 
-	/*hts221@5f {
+	hts221@5f {
 		compatible = "st,hts221";
 		reg = <0x5f>;
 		interrupt-parent = <&gpio>;
-		interrupts = <26 0x1>;
-	};*/
-	lsm6dsm@6b {
-		compatible = "st,lsm6dsm";
+		interrupts = <26 0x4>;
+	};
+	lsm6ds3@6b {
+		compatible = "st,lsm6ds3";
 		reg = <0x6b>;
 		interrupt-parent = <&gpio>;
 		interrupts = <26 0x4>;
