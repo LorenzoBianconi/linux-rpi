@@ -196,7 +196,7 @@ static int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 
 int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 {
-	u16 fifo_watermark = ~0, cur_watermark, fifo_depth;
+	u16 fifo_watermark = ~0, sip = 0, cur_watermark;
 	struct st_lsm6dsx_hw *hw = sensor->hw;
 	struct st_lsm6dsx_sensor *cur_sensor;
 	int i, err;
@@ -213,10 +213,16 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 
 		if (cur_watermark < fifo_watermark)
 			fifo_watermark = cur_watermark;
+
+		sip += cur_sensor->sip;
 	}
 
-	fifo_watermark = max_t(u16, fifo_watermark, hw->sip);
-	fifo_depth = fifo_watermark * ST_LSM6DSX_SAMPLE_SIZE;
+	if (!sip)
+		return 0;
+
+	fifo_watermark = max_t(u16, fifo_watermark, sip);
+	fifo_watermark = (fifo_watermark / sip) * sip;
+	fifo_watermark = fifo_watermark * ST_LSM6DSX_SAMPLE_SIZE;
 
 	mutex_lock(&hw->lock);
 
@@ -225,11 +231,11 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 	if (err < 0)
 		goto out;
 
-	fifo_depth = ((data & ~ST_LSM6DSX_FIFO_TH_MASK) << 8) |
-		      (fifo_depth & ST_LSM6DSX_FIFO_TH_MASK);
+	fifo_watermark = ((data & ~ST_LSM6DSX_FIFO_TH_MASK) << 8) |
+			  (fifo_watermark & ST_LSM6DSX_FIFO_TH_MASK);
 
 	err = hw->tf->write(hw->dev, ST_LSM6DSX_REG_FIFO_THL_ADDR,
-			    sizeof(fifo_depth), (u8 *)&fifo_depth);
+			    sizeof(fifo_watermark), (u8 *)&fifo_watermark);
 out:
 	mutex_unlock(&hw->lock);
 
@@ -238,15 +244,11 @@ out:
 
 static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 {
+	u16 fifo_len, pattern_len = hw->sip * ST_LSM6DSX_SAMPLE_SIZE;
+	u8 ts_buffer[ST_LSM6DSX_SAMPLE_SIZE], fifo_status[2];
 	struct st_lsm6dsx_sensor *acc_sensor, *gyro_sensor;
-	u8 ts_buffer[ST_LSM6DSX_SAMPLE_SIZE];
-	int err, i = 0, acc_sip, gyro_sip;
-	u16 fifo_depth, fifo_len;
-	u8 fifo_status[2];
+	int err, acc_sip, gyro_sip, read_len;
 	s64 ts;
-
-	if (WARN_ON_ONCE(!hw->sip))
-		return 0;
 
 	err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_FIFO_DIFFL_ADDR,
 			   sizeof(fifo_status), fifo_status);
@@ -257,14 +259,13 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 		return 0;
 
 	fifo_status[1] &= ST_LSM6DSX_FIFO_DIFF_MASK;
-	fifo_depth = (u16)get_unaligned_le16(fifo_status);
-
-	fifo_len = (fifo_depth / hw->sip) * hw->sip;
+	fifo_len = (u16)get_unaligned_le16(fifo_status);
+	read_len = fifo_len;
 
 	acc_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_ACC]);
 	gyro_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_GYRO]);
 
-	while (i < fifo_len) {
+	while (read_len >= pattern_len) {
 		acc_sip = acc_sensor->sip;
 		gyro_sip = gyro_sensor->sip;
 
@@ -276,6 +277,8 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 						gyro_sensor->buffer);
 				if (err < 0)
 					return err;
+
+				read_len -= ST_LSM6DSX_SAMPLE_SIZE;
 			}
 
 			if (acc_sip > 0) {
@@ -285,6 +288,8 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 						acc_sensor->buffer);
 				if (err < 0)
 					return err;
+
+				read_len -= ST_LSM6DSX_SAMPLE_SIZE;
 			}
 
 			/* read data timestamp */
@@ -294,6 +299,8 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 					    ts_buffer);
 			if (err < 0)
 				return err;
+
+			read_len -= ST_LSM6DSX_SAMPLE_SIZE;
 
 			ts = (s64)((get_unaligned_le16(ts_buffer) << 8) +
 				   ts_buffer[3]);
@@ -309,23 +316,19 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 			}
 			ts *= ST_LSM6DSX_TS_GAIN_HR;
 
-			if (gyro_sip-- > 0) {
+			if (gyro_sip-- > 0)
 				iio_push_to_buffers_with_timestamp(
 					hw->iio_devs[ST_LSM6DSX_ID_GYRO],
 					gyro_sensor->buffer, ts);
-				i += ST_LSM6DSX_SAMPLE_SIZE;
-			}
 
-			if (acc_sip-- > 0) {
+			if (acc_sip-- > 0)
 				iio_push_to_buffers_with_timestamp(
 					hw->iio_devs[ST_LSM6DSX_ID_ACC],
 					acc_sensor->buffer, ts);
-				i += ST_LSM6DSX_SAMPLE_SIZE;
-			}
 		}
 	}
 
-	return fifo_len;
+	return fifo_len - read_len;
 }
 
 static int st_lsm6dsx_flush_fifo(struct st_lsm6dsx_hw *hw)
