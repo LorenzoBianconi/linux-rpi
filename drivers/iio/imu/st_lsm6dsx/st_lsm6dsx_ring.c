@@ -29,6 +29,7 @@
 #define ST_LSM6DSX_REG_FIFO_DIFFL_ADDR		0x3a
 #define ST_LSM6DSX_FIFO_DIFF_MASK		0x0f
 #define ST_LSM6DSX_FIFO_EMPTY_MASK		0x10
+#define ST_LSM6DSX_FIFO_FTH_MASK		0x80
 #define ST_LSM6DSX_REG_DATA_AVL_ADDR		0x1e
 #define ST_LSM6DSX_REG_FIFO_PATTERN_ADDR	0x3c
 #define ST_LSM6DSX_REG_FIFO_OUTL_ADDR		0x3e
@@ -196,11 +197,14 @@ static int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 
 int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 {
-	u16 fifo_watermark = ~0, sip = 0, cur_watermark;
+	u16 fifo_watermark = ~0, cur_watermark;
 	struct st_lsm6dsx_hw *hw = sensor->hw;
 	struct st_lsm6dsx_sensor *cur_sensor;
 	int i, err;
 	u8 data;
+
+	if (!hw->sip)
+		return 0;
 
 	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
 		cur_sensor = iio_priv(hw->iio_devs[i]);
@@ -213,16 +217,11 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 
 		if (cur_watermark < fifo_watermark)
 			fifo_watermark = cur_watermark;
-
-		sip += cur_sensor->sip;
 	}
 
-	if (!sip)
-		return 0;
-
-	fifo_watermark = max_t(u16, fifo_watermark, sip);
-	fifo_watermark = (fifo_watermark / sip) * sip;
-	fifo_watermark = fifo_watermark * ST_LSM6DSX_SAMPLE_SIZE;
+	fifo_watermark = max_t(u16, fifo_watermark, hw->sip);
+	fifo_watermark = (fifo_watermark / hw->sip) * hw->sip;
+	fifo_watermark = fifo_watermark * ST_LSM6DSX_SAMPLE_DEPTH;
 
 	mutex_lock(&hw->lock);
 
@@ -245,9 +244,9 @@ out:
 static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 {
 	u16 fifo_len, pattern_len = hw->sip * ST_LSM6DSX_SAMPLE_SIZE;
-	u8 ts_buffer[ST_LSM6DSX_SAMPLE_SIZE], fifo_status[2];
 	struct st_lsm6dsx_sensor *acc_sensor, *gyro_sensor;
-	int err, acc_sip, gyro_sip, read_len;
+	int err, acc_sip, gyro_sip, read_len, offset;
+	u8 fifo_status[2], buffer[pattern_len];
 	s64 ts;
 
 	err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_FIFO_DIFFL_ADDR,
@@ -255,55 +254,43 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 	if (err < 0)
 		return err;
 
-	if (fifo_status[1] & ST_LSM6DSX_FIFO_EMPTY_MASK)
+	if (!(fifo_status[1] & ST_LSM6DSX_FIFO_FTH_MASK))
 		return 0;
 
 	fifo_status[1] &= ST_LSM6DSX_FIFO_DIFF_MASK;
-	fifo_len = (u16)get_unaligned_le16(fifo_status);
-	read_len = fifo_len;
+	fifo_len = (u16)get_unaligned_le16(fifo_status) * ST_LSM6DSX_CHAN_SIZE;
+	fifo_len = (fifo_len / pattern_len) * pattern_len;
 
 	acc_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_ACC]);
 	gyro_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_GYRO]);
 
-	while (read_len >= pattern_len) {
-		acc_sip = acc_sensor->sip;
+	for (read_len = fifo_len - pattern_len; read_len > 0;
+	     read_len -= pattern_len) {
+		err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
+				   sizeof(buffer), buffer);
+		if (err < 0)
+			return err;
+
 		gyro_sip = gyro_sensor->sip;
+		acc_sip = acc_sensor->sip;
+		offset = 0;
 
 		while (acc_sip > 0 || gyro_sip > 0) {
 			if (gyro_sip > 0) {
-				err =  hw->tf->read(hw->dev,
-						ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
-						ST_LSM6DSX_SAMPLE_SIZE,
-						gyro_sensor->buffer);
-				if (err < 0)
-					return err;
-
-				read_len -= ST_LSM6DSX_SAMPLE_SIZE;
+				memcpy(gyro_sensor->buffer, &buffer[offset],
+				       ST_LSM6DSX_SAMPLE_SIZE);
+				offset += ST_LSM6DSX_SAMPLE_SIZE;
 			}
 
 			if (acc_sip > 0) {
-				err =  hw->tf->read(hw->dev,
-						ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
-						ST_LSM6DSX_SAMPLE_SIZE,
-						acc_sensor->buffer);
-				if (err < 0)
-					return err;
-
-				read_len -= ST_LSM6DSX_SAMPLE_SIZE;
+				memcpy(acc_sensor->buffer, &buffer[offset],
+				       ST_LSM6DSX_SAMPLE_SIZE);
+				offset += ST_LSM6DSX_SAMPLE_SIZE;
 			}
 
-			/* read data timestamp */
-			err =  hw->tf->read(hw->dev,
-					    ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
-					    ST_LSM6DSX_SAMPLE_SIZE,
-					    ts_buffer);
-			if (err < 0)
-				return err;
-
-			read_len -= ST_LSM6DSX_SAMPLE_SIZE;
-
-			ts = (s64)((get_unaligned_le16(ts_buffer) << 8) +
-				   ts_buffer[3]);
+			ts = (s64)(get_unaligned_le16(&buffer[offset]) << 8) +
+				  buffer[offset + 3];
+			offset += ST_LSM6DSX_SAMPLE_SIZE;
 
 			/* reset timestamp counter */
 			if (ts == 0xffffff) {
