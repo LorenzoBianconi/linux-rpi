@@ -35,8 +35,6 @@
 #define ST_LSM6DSX_REG_ROUNDING_MASK		0x04
 #define ST_LSM6DSX_REG_LIR_ADDR			0x58
 #define ST_LSM6DSX_REG_LIR_MASK			0x01
-#define ST_LSM6DSX_REG_TIMER_OVR_ADDR		0x5e
-#define ST_LSM6DSX_REG_TIMER_OVR_MASK		0x01
 
 #define ST_LSM6DSX_REG_ACC_ODR_ADDR		0x10
 #define ST_LSM6DSX_REG_ACC_ODR_MASK		0xf0
@@ -54,19 +52,11 @@
 #define ST_LSM6DSX_REG_GYRO_OUT_Y_L_ADDR	0x24
 #define ST_LSM6DSX_REG_GYRO_OUT_Z_L_ADDR	0x26
 
-#define ST_LSM6DSX_REG_WAKE_UP_DUR_ADDR		0x5c
-#define ST_LSM6DSX_TIMER_HR_MASK		0x10
-
 #define ST_LSM6DS3_WHOAMI			0x69
 #define ST_LSM6DSM_WHOAMI			0x6a
 
 #define ST_LSM6DS3_MAX_FIFO_SIZE		8192
 #define ST_LSM6DSM_MAX_FIFO_SIZE		4096
-
-#define ST_LSM6DS3_REG_TIMESTAMP_ADRR		0x58
-#define ST_LSM6DS3_TIMER_EN_MASK		0x80
-#define ST_LSM6DSM_REG_TIMESTAMP_ADRR		0x19
-#define ST_LSM6DSM_TIMER_EN_MASK		0x20
 
 #define ST_LSM6DSX_ACC_FS_2G_GAIN		IIO_G_TO_M_S_2(61)
 #define ST_LSM6DSX_ACC_FS_4G_GAIN		IIO_G_TO_M_S_2(122)
@@ -158,18 +148,10 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 	{
 		.wai = ST_LSM6DS3_WHOAMI,
 		.max_fifo_size = ST_LSM6DS3_MAX_FIFO_SIZE,
-		.ts = {
-			.addr = ST_LSM6DS3_REG_TIMESTAMP_ADRR,
-			.mask = ST_LSM6DS3_TIMER_EN_MASK,
-		},
 	},
 	{
 		.wai = ST_LSM6DSM_WHOAMI,
 		.max_fifo_size = ST_LSM6DSM_MAX_FIFO_SIZE,
-		.ts = {
-			.addr = ST_LSM6DSM_REG_TIMESTAMP_ADRR,
-			.mask = ST_LSM6DSM_TIMER_EN_MASK,
-		},
 	},
 };
 
@@ -629,18 +611,6 @@ static int st_lsm6dsx_init_device(struct st_lsm6dsx_hw *hw)
 
 	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_ROUNDING_ADDR,
 					 ST_LSM6DSX_REG_ROUNDING_MASK, 1);
-	if (err < 0)
-		return err;
-
-	/* enable timestamp engine */
-	err = st_lsm6dsx_write_with_mask(hw, hw->settings->ts.addr,
-					 hw->settings->ts.mask, 1);
-	if (err < 0)
-		return err;
-
-	/* enable HR timer */
-	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_WAKE_UP_DUR_ADDR,
-					 ST_LSM6DSX_TIMER_HR_MASK, 1);
 	if (err < 0)
 		return err;
 

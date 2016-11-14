@@ -22,7 +22,7 @@
 #define ST_LSM6DSX_SAMPLE_DEPTH		(ST_LSM6DSX_SAMPLE_SIZE / \
 					 ST_LSM6DSX_CHAN_SIZE)
 
-#define ST_LSM6DSX_RX_MAX_LENGTH	16
+#define ST_LSM6DSX_RX_MAX_LENGTH	256
 #define ST_LSM6DSX_TX_MAX_LENGTH	8
 
 struct st_lsm6dsx_transfer_buffer {
@@ -43,7 +43,6 @@ struct st_lsm6dsx_reg {
 struct st_lsm6dsx_settings {
 	u8 wai;
 	u16 max_fifo_size;
-	struct st_lsm6dsx_reg ts;
 };
 
 enum st_lsm6dsx_sensor_id {
@@ -58,8 +57,6 @@ enum st_lsm6dsx_fifo_mode {
 };
 
 struct st_lsm6dsx_sensor {
-	u8 buffer[ALIGN(ST_LSM6DSX_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
-
 	enum st_lsm6dsx_sensor_id id;
 	struct st_lsm6dsx_hw *hw;
 
