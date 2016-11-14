@@ -338,29 +338,19 @@ static int st_lsm6dsx_set_fs(struct st_lsm6dsx_sensor *sensor, u32 gain)
 	return 0;
 }
 
-int st_lsm6dsx_get_odr_val(enum st_lsm6dsx_sensor_id id, u16 odr)
+static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
 {
-	int i;
+	enum st_lsm6dsx_sensor_id id = sensor->id;
+	int i, err, val;
 
 	for (i = 0; i < ST_LSM6DSX_ODR_LIST_SIZE; i++)
 		if (st_lsm6dsx_odr_table[id].odr_avl[i].hz == odr)
 			break;
 
-	if (i < ST_LSM6DSX_ODR_LIST_SIZE)
-		return st_lsm6dsx_odr_table[id].odr_avl[i].val;
-	else
+	if (i == ST_LSM6DSX_ODR_LIST_SIZE)
 		return -EINVAL;
-}
 
-static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
-{
-	enum st_lsm6dsx_sensor_id id = sensor->id;
-	int err, val;
-
-	val = st_lsm6dsx_get_odr_val(id, odr);
-	if (val < 0)
-		return val;
-
+	val = st_lsm6dsx_odr_table[id].odr_avl[i].val;
 	err = st_lsm6dsx_write_with_mask(sensor->hw,
 					 st_lsm6dsx_odr_table[id].reg.addr,
 					 st_lsm6dsx_odr_table[id].reg.mask,

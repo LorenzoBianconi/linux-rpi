@@ -94,7 +94,6 @@ int st_lsm6dsx_write_with_mask(struct st_lsm6dsx_hw *hw, u8 addr, u8 mask,
 			       u8 val);
 int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor,
 				u16 watermark);
-int st_lsm6dsx_get_odr_val(enum st_lsm6dsx_sensor_id id, u16 odr);
 
 #endif /* ST_LSM6DSX_H */
 
