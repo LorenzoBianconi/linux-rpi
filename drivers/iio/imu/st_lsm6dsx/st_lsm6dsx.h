@@ -65,7 +65,11 @@ struct st_lsm6dsx_sensor {
 
 	u16 watermark;
 	u8 sip;
+	u8 decimator;
 	u8 decimator_mask;
+
+	s64 delta_ts;
+	s64 ts;
 };
 
 struct st_lsm6dsx_hw {

@@ -87,15 +87,13 @@ static int st_lsm6dsx_update_decimators(struct st_lsm6dsx_hw *hw)
 
 		/* update fifo decimators and sample in pattern */
 		if (hw->enable_mask & BIT(sensor->id)) {
-			u8 decimator;
-
-			decimator = max_odr / sensor->odr;
-			data = st_lsm6dsx_get_decimator_val(decimator);
-
 			sensor->sip = sensor->odr / min_odr;
+			sensor->decimator = max_odr / sensor->odr;
+			data = st_lsm6dsx_get_decimator_val(sensor->decimator);
 		} else {
-			data = 0;
 			sensor->sip = 0;
+			sensor->decimator = 0;
+			data = 0;
 		}
 
 		err = st_lsm6dsx_write_with_mask(hw,
@@ -189,8 +187,9 @@ out:
 static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 {
 	u16 fifo_len, pattern_len = hw->sip * ST_LSM6DSX_SAMPLE_SIZE;
+	int err, acc_sip, gyro_sip, read_len, offset, samples;
 	struct st_lsm6dsx_sensor *acc_sensor, *gyro_sensor;
-	int err, acc_sip, gyro_sip, read_len, offset;
+	s64 acc_ts, acc_delta_ts, gyro_ts, gyro_delta_ts;
 	u8 iio_buf[ALIGN(ST_LSM6DSX_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
 	u8 fifo_status[2], buf[pattern_len];
 
@@ -204,10 +203,19 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 
 	fifo_status[1] &= ST_LSM6DSX_FIFO_DIFF_MASK;
 	fifo_len = (u16)get_unaligned_le16(fifo_status) * ST_LSM6DSX_CHAN_SIZE;
+	samples = fifo_len / ST_LSM6DSX_SAMPLE_SIZE;
 	fifo_len = (fifo_len / pattern_len) * pattern_len;
 
+	/* compute delta timestamp */
 	acc_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_ACC]);
+	acc_ts = acc_sensor->ts - acc_sensor->delta_ts;
+	acc_delta_ts = div_s64(acc_sensor->delta_ts * acc_sensor->decimator,
+			       samples);
+
 	gyro_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_GYRO]);
+	gyro_ts = gyro_sensor->ts - gyro_sensor->delta_ts;
+	gyro_delta_ts = div_s64(gyro_sensor->delta_ts * gyro_sensor->decimator,
+				samples);
 
 	for (read_len = 0; read_len < fifo_len; read_len += pattern_len) {
 		err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
@@ -225,8 +233,9 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 				       ST_LSM6DSX_SAMPLE_SIZE);
 				iio_push_to_buffers_with_timestamp(
 					hw->iio_devs[ST_LSM6DSX_ID_GYRO],
-					iio_buf, iio_get_time_ns());
+					iio_buf, gyro_ts);
 				offset += ST_LSM6DSX_SAMPLE_SIZE;
+				gyro_ts += gyro_delta_ts;
 			}
 
 			if (acc_sip-- > 0) {
@@ -234,8 +243,9 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 				       ST_LSM6DSX_SAMPLE_SIZE);
 				iio_push_to_buffers_with_timestamp(
 					hw->iio_devs[ST_LSM6DSX_ID_ACC],
-					iio_buf, iio_get_time_ns());
+					iio_buf, acc_ts);
 				offset += ST_LSM6DSX_SAMPLE_SIZE;
+				acc_ts += acc_delta_ts;
 			}
 		}
 	}
@@ -282,10 +292,39 @@ static int st_lsm6dsx_update_fifo(struct st_lsm6dsx_sensor *sensor,
 	if (err < 0)
 		return err;
 
-	if (hw->enable_mask)
+	if (hw->enable_mask) {
 		err = st_lsm6dsx_set_fifo_mode(hw, ST_LSM6DSX_FIFO_CONT);
+		if (err < 0)
+			return err;
 
-	return err;
+		sensor->ts = iio_get_time_ns();
+	}
+
+	return 0;
+}
+
+static irqreturn_t st_lsm6dsx_ring_handler_irq(int irq, void *private)
+{
+	struct st_lsm6dsx_hw *hw = (struct st_lsm6dsx_hw *)private;
+	struct st_lsm6dsx_sensor *sensor;
+	int i;
+
+	if (!hw->sip)
+		return IRQ_NONE;
+
+	for (i = 0; i < ST_LSM6DSX_ID_MAX; i++) {
+		sensor = iio_priv(hw->iio_devs[i]);
+
+		if (sensor->sip > 0) {
+			s64 timestamp;
+
+			timestamp = iio_get_time_ns();
+			sensor->delta_ts = timestamp - sensor->ts;
+			sensor->ts = timestamp;
+		}
+	}
+
+	return IRQ_WAKE_THREAD;
 }
 
 static irqreturn_t st_lsm6dsx_ring_handler_thread(int irq, void *private)
@@ -295,7 +334,7 @@ static irqreturn_t st_lsm6dsx_ring_handler_thread(int irq, void *private)
 
 	count = st_lsm6dsx_read_fifo(hw);
 
-	return count > 0 ? IRQ_HANDLED : IRQ_NONE;
+	return !count ? IRQ_NONE : IRQ_HANDLED;
 }
 
 static int st_lsm6dsx_buffer_preenable(struct iio_dev *iio_dev)
@@ -333,7 +372,8 @@ int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_hw *hw)
 		break;
 	}
 
-	err = devm_request_threaded_irq(hw->dev, hw->irq, NULL,
+	err = devm_request_threaded_irq(hw->dev, hw->irq,
+					st_lsm6dsx_ring_handler_irq,
 					st_lsm6dsx_ring_handler_thread,
 					irq_type | IRQF_ONESHOT,
 					hw->name, hw);
