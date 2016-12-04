@@ -31,7 +31,8 @@ static int st_lsm6dsx_spi_read(struct device *dev, u8 addr, int len,
 			.tx_buf = hw->tb.tx_buf,
 			.bits_per_word = 8,
 			.len = 1,
-		},{
+		},
+		{
 			.rx_buf = hw->tb.rx_buf,
 			.bits_per_word = 8,
 			.len = len,

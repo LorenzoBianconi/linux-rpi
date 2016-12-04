@@ -21,8 +21,6 @@
 #define ST_LSM6DSX_REG_ACC_DEC_MASK		0x07
 #define ST_LSM6DSX_REG_GYRO_DEC_MASK		0x38
 #define ST_LSM6DSX_REG_INT1_ADDR		0x0d
-#define ST_LSM6DSX_REG_ACC_DRDY_IRQ_MASK	0x01
-#define ST_LSM6DSX_REG_GYRO_DRDY_IRQ_MASK	0x02
 #define ST_LSM6DSX_REG_FIFO_FTH_IRQ_MASK	0x08
 #define ST_LSM6DSX_REG_WHOAMI_ADDR		0x0f
 #define ST_LSM6DSX_REG_RESET_ADDR		0x12
@@ -63,14 +61,10 @@
 #define ST_LSM6DSX_ACC_FS_8G_GAIN		IIO_G_TO_M_S_2(244)
 #define ST_LSM6DSX_ACC_FS_16G_GAIN		IIO_G_TO_M_S_2(488)
 
-#define ST_LSM6DSX_DATA_ACC_AVL_MASK		0x01
-
 #define ST_LSM6DSX_GYRO_FS_245_GAIN		IIO_DEGREE_TO_RAD(4375)
 #define ST_LSM6DSX_GYRO_FS_500_GAIN		IIO_DEGREE_TO_RAD(8750)
 #define ST_LSM6DSX_GYRO_FS_1000_GAIN		IIO_DEGREE_TO_RAD(17500)
 #define ST_LSM6DSX_GYRO_FS_2000_GAIN		IIO_DEGREE_TO_RAD(70000)
-
-#define ST_LSM6DSX_DATA_GYRO_AVL_MASK		0x02
 
 struct st_lsm6dsx_odr {
 	u16 hz;
@@ -305,7 +299,7 @@ static int st_lsm6dsx_check_whoami(struct st_lsm6dsx_hw *hw)
 	}
 
 	if (i == ARRAY_SIZE(st_lsm6dsx_sensor_settings)) {
-		dev_err(hw->dev, "wrong whoami [%02x]\n", data);
+		dev_err(hw->dev, "unsupported whoami [%02x]\n", data);
 		return -ENODEV;
 	}
 
@@ -478,7 +472,7 @@ static int st_lsm6dsx_write_raw(struct iio_dev *iio_dev,
 	return err;
 }
 
-static int st_lsm6dsx_set_watermark(struct iio_dev *iio_dev, unsigned val)
+static int st_lsm6dsx_set_watermark(struct iio_dev *iio_dev, unsigned int val)
 {
 	struct st_lsm6dsx_sensor *sensor = iio_priv(iio_dev);
 	struct st_lsm6dsx_hw *hw = sensor->hw;
@@ -502,9 +496,9 @@ st_lsm6dsx_sysfs_sampling_frequency_avl(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
 {
-	int i, len = 0;
 	struct st_lsm6dsx_sensor *sensor = iio_priv(dev_get_drvdata(dev));
 	enum st_lsm6dsx_sensor_id id = sensor->id;
+	int i, len = 0;
 
 	for (i = 0; i < ST_LSM6DSX_ODR_LIST_SIZE; i++)
 		len += scnprintf(buf + len, PAGE_SIZE - len, "%d ",
@@ -518,9 +512,9 @@ static ssize_t st_lsm6dsx_sysfs_scale_avail(struct device *dev,
 					    struct device_attribute *attr,
 					    char *buf)
 {
-	int i, len = 0;
 	struct st_lsm6dsx_sensor *sensor = iio_priv(dev_get_drvdata(dev));
 	enum st_lsm6dsx_sensor_id id = sensor->id;
+	int i, len = 0;
 
 	for (i = 0; i < ST_LSM6DSX_FS_LIST_SIZE; i++)
 		len += scnprintf(buf + len, PAGE_SIZE - len, "0.%06u ",
@@ -531,9 +525,9 @@ static ssize_t st_lsm6dsx_sysfs_scale_avail(struct device *dev,
 }
 
 static IIO_DEV_ATTR_SAMP_FREQ_AVAIL(st_lsm6dsx_sysfs_sampling_frequency_avl);
-static IIO_DEVICE_ATTR(in_accel_scale_available, S_IRUGO,
+static IIO_DEVICE_ATTR(in_accel_scale_available, 0444,
 		       st_lsm6dsx_sysfs_scale_avail, NULL, 0);
-static IIO_DEVICE_ATTR(in_anglvel_scale_available, S_IRUGO,
+static IIO_DEVICE_ATTR(in_anglvel_scale_available, 0444,
 		       st_lsm6dsx_sysfs_scale_avail, NULL, 0);
 
 static struct attribute *st_lsm6dsx_acc_attributes[] = {
@@ -681,7 +675,7 @@ int st_lsm6dsx_probe(struct st_lsm6dsx_hw *hw)
 		return err;
 
 	if (hw->irq > 0) {
-		err = st_lsm6dsx_allocate_buffers(hw);
+		err = st_lsm6dsx_allocate_rings(hw);
 		if (err < 0)
 			return err;
 	}

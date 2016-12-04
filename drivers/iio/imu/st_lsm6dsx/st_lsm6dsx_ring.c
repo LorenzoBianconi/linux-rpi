@@ -153,9 +153,7 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 		cur_watermark = (cur_sensor == sensor) ? watermark
 						       : cur_sensor->watermark;
 
-		if (cur_watermark < fifo_watermark)
-			fifo_watermark = cur_watermark;
-
+		fifo_watermark = min_t(u16, fifo_watermark, cur_watermark);
 		sip += cur_sensor->sip;
 	}
 
@@ -205,6 +203,11 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 	fifo_len = (u16)get_unaligned_le16(fifo_status) * ST_LSM6DSX_CHAN_SIZE;
 	samples = fifo_len / ST_LSM6DSX_SAMPLE_SIZE;
 	fifo_len = (fifo_len / pattern_len) * pattern_len;
+	/*
+	 * leave one complete pattern in FIFO to guarantee
+	 * proper alignment
+	 */
+	fifo_len -= pattern_len;
 
 	/* compute delta timestamp */
 	acc_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_ACC]);
@@ -267,9 +270,9 @@ static int st_lsm6dsx_flush_fifo(struct st_lsm6dsx_hw *hw)
 	return err;
 }
 
-static int st_lsm6dsx_update_fifo(struct st_lsm6dsx_sensor *sensor,
-				  bool enable)
+static int st_lsm6dsx_update_fifo(struct iio_dev *iio_dev, bool enable)
 {
+	struct st_lsm6dsx_sensor *sensor = iio_priv(iio_dev);
 	struct st_lsm6dsx_hw *hw = sensor->hw;
 	int err;
 
@@ -339,12 +342,12 @@ static irqreturn_t st_lsm6dsx_ring_handler_thread(int irq, void *private)
 
 static int st_lsm6dsx_buffer_preenable(struct iio_dev *iio_dev)
 {
-	return st_lsm6dsx_update_fifo(iio_priv(iio_dev), true);
+	return st_lsm6dsx_update_fifo(iio_dev, true);
 }
 
 static int st_lsm6dsx_buffer_postdisable(struct iio_dev *iio_dev)
 {
-	return st_lsm6dsx_update_fifo(iio_priv(iio_dev), false);
+	return st_lsm6dsx_update_fifo(iio_dev, false);
 }
 
 static const struct iio_buffer_setup_ops st_lsm6dsx_buffer_ops = {
@@ -352,7 +355,7 @@ static const struct iio_buffer_setup_ops st_lsm6dsx_buffer_ops = {
 	.postdisable = st_lsm6dsx_buffer_postdisable,
 };
 
-int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_hw *hw)
+int st_lsm6dsx_allocate_rings(struct st_lsm6dsx_hw *hw)
 {
 	struct iio_buffer *buffer;
 	unsigned long irq_type;
