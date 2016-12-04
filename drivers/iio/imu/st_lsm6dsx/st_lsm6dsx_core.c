@@ -659,6 +659,7 @@ int st_lsm6dsx_probe(struct st_lsm6dsx_hw *hw)
 	int i, err;
 
 	mutex_init(&hw->lock);
+	mutex_init(&hw->fifo_lock);
 
 	err = st_lsm6dsx_check_whoami(hw);
 	if (err < 0)
