@@ -1,6 +1,6 @@
 
 config IIO_ST_LSM6DSX
-	tristate "STMicroelectronics LSM6DS3/LSM6DSM sensor driver"
+	tristate "ST_LSM6DSx driver for STM 6-axis imu Mems sensors"
 	depends on (I2C || SPI)
 	select IIO_BUFFER
 	select IIO_KFIFO_BUF
