@@ -78,7 +78,9 @@ struct st_lsm6dsx_hw {
 	const char *name;
 	struct device *dev;
 	int irq;
+
 	struct mutex lock;
+	struct mutex fifo_lock;
 
 	enum st_lsm6dsx_fifo_mode fifo_mode;
 	u8 enable_mask;

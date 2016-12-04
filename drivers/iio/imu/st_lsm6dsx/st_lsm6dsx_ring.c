@@ -260,12 +260,12 @@ static int st_lsm6dsx_flush_fifo(struct st_lsm6dsx_hw *hw)
 {
 	int err;
 
-	disable_irq(hw->irq);
+	mutex_lock(&hw->fifo_lock);
 
 	st_lsm6dsx_read_fifo(hw);
 	err = st_lsm6dsx_set_fifo_mode(hw, ST_LSM6DSX_FIFO_BYPASS);
 
-	enable_irq(hw->irq);
+	mutex_unlock(&hw->fifo_lock);
 
 	return err;
 }
@@ -335,7 +335,9 @@ static irqreturn_t st_lsm6dsx_ring_handler_thread(int irq, void *private)
 	struct st_lsm6dsx_hw *hw = (struct st_lsm6dsx_hw *)private;
 	int count;
 
+	mutex_lock(&hw->fifo_lock);
 	count = st_lsm6dsx_read_fifo(hw);
+	mutex_unlock(&hw->fifo_lock);
 
 	return !count ? IRQ_NONE : IRQ_HANDLED;
 }
