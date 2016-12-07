@@ -28,12 +28,15 @@
 #define ST_LSM6DSX_FIFO_EMPTY_MASK		0x10
 #define ST_LSM6DSX_REG_FIFO_OUTL_ADDR		0x3e
 
-struct st_lsm6dsx_dec_entry {
+#define ST_LSM6DSX_MAX_FIFO_ODR_VAL		0x08
+
+struct st_lsm6dsx_decimator_entry {
 	u8 decimator;
 	u8 val;
 };
 
-static const struct st_lsm6dsx_dec_entry st_lsm6dsx_dec_table[] = {
+static const
+struct st_lsm6dsx_decimator_entry st_lsm6dsx_decimator_table[] = {
 	{  0, 0x0 },
 	{  1, 0x1 },
 	{  2, 0x2 },
@@ -46,13 +49,13 @@ static const struct st_lsm6dsx_dec_entry st_lsm6dsx_dec_table[] = {
 
 static int st_lsm6dsx_get_decimator_val(u8 val)
 {
-	int i, max_size = ARRAY_SIZE(st_lsm6dsx_dec_table);
+	int i, max_size = ARRAY_SIZE(st_lsm6dsx_decimator_table);
 
 	for (i = 0; i < max_size; i++)
-		if (st_lsm6dsx_dec_table[i].decimator == val)
+		if (st_lsm6dsx_decimator_table[i].decimator == val)
 			break;
 
-	return i == max_size ? 0 : st_lsm6dsx_dec_table[i].val;
+	return i == max_size ? 0 : st_lsm6dsx_decimator_table[i].val;
 }
 
 static void st_lsm6dsx_get_max_min_odr(struct st_lsm6dsx_hw *hw,
@@ -120,7 +123,8 @@ static int st_lsm6dsx_set_fifo_mode(struct st_lsm6dsx_hw *hw,
 		data = fifo_mode;
 		break;
 	case ST_LSM6DSX_FIFO_CONT:
-		data = fifo_mode | 0x40;
+		data = (ST_LSM6DSX_MAX_FIFO_ODR_VAL <<
+			__ffs(ST_LSM6DSX_FIFO_ODR_MASK)) | fifo_mode;
 		break;
 	default:
 		return -EINVAL;
@@ -282,10 +286,15 @@ static int st_lsm6dsx_update_fifo(struct iio_dev *iio_dev, bool enable)
 			return err;
 	}
 
-	err = enable ? st_lsm6dsx_sensor_enable(sensor)
-		     : st_lsm6dsx_sensor_disable(sensor);
-	if (err < 0)
-		return err;
+	if (enable) {
+		err = st_lsm6dsx_sensor_enable(sensor);
+		if (err < 0)
+			return err;
+	} else {
+		err = st_lsm6dsx_sensor_disable(sensor);
+		if (err < 0)
+			return err;
+	}
 
 	err = st_lsm6dsx_update_decimators(hw);
 	if (err < 0)
