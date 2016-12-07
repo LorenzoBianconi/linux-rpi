@@ -1,5 +1,20 @@
 /*
- * STMicroelectronics st_lsm6dsx sensor driver
+ * STMicroelectronics st_lsm6dsx FIFO buffer library driver
+ *
+ * LSM6DS3/LSM6DSM: The FIFO buffer can be configured to store data
+ * from gyroscope and accelerometer. Samples are queued without any tag
+ * according to a specific pattern based on 'FIFO data sets' (6 bytes each):
+ *  - 1st data set is reserved for gyroscope data
+ *  - 2nd data set is reserved for accelerometer data
+ * The FIFO pattern changes depending on the ODRs and decimation factors
+ * assigned to the FIFO data sets. The first sequence of data stored in FIFO
+ * buffer contains the data of all the enabled FIFO data sets
+ * (e.g. Gx, Gy, Gz, Ax, Ay, Az), then data are repeated depending on the
+ * value of the decimation factor and ODR set for each FIFO data set.
+ * FIFO supported modes:
+ *  - BYPASS: FIFO disabled
+ *  - CONTINUOUS: FIFO enabled. When the buffer is full, the FIFO index
+ *    restarts from the beginning and the oldest sample is overwritten
  *
  * Copyright 2016 STMicroelectronics Inc.
  *
@@ -187,6 +202,14 @@ out:
 	return err < 0 ? err : 0;
 }
 
+/**
+ * st_lsm6dsx_read_fifo() - LSM6DS3-LSM6DSM read FIFO routine
+ * @hw: Pointer to instance of struct st_lsm6dsx_hw.
+ *
+ * Read samples from the hw FIFO and push them to IIO buffers.
+ *
+ * Return: Number of bytes read from the FIFO
+ */
 static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 {
 	u16 fifo_len, pattern_len = hw->sip * ST_LSM6DSX_SAMPLE_SIZE;
@@ -214,7 +237,11 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 	 */
 	fifo_len -= pattern_len;
 
-	/* compute delta timestamp */
+	/*
+	 * compute delta timestamp between two consecutive samples
+	 * in order to estimate queueing time of data generated
+	 * by the sensor
+	 */
 	acc_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_ACC]);
 	acc_ts = acc_sensor->ts - acc_sensor->delta_ts;
 	acc_delta_ts = div_s64(acc_sensor->delta_ts * acc_sensor->decimator,
@@ -310,6 +337,10 @@ static int st_lsm6dsx_update_fifo(struct iio_dev *iio_dev, bool enable)
 		if (err < 0)
 			return err;
 
+		/*
+		 * store enable buffer timestamp as reference to compute
+		 * first delta timestamp
+		 */
 		sensor->ts = iio_get_time_ns();
 	}
 

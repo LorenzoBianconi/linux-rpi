@@ -1,6 +1,28 @@
 /*
  * STMicroelectronics st_lsm6dsx sensor driver
  *
+ * The ST LSM6DSx IMU MEMS series consists of 3D digital accelerometer
+ * and 3D digital gyroscope system-in-package with a digital I2C/SPI serial
+ * interface standard output.
+ * LSM6DSx IMU MEMS series has a dynamic user-selectable full-scale
+ * acceleration range of +-2/+-4/+-8/+-16 g and an angular rate range of
+ * +-125/+-245/+-500/+-1000/+-2000 dps
+ * LSM6DSx series has an integrated First-In-First-Out (FIFO) buffer
+ * allowing dynamic batching of sensor data.
+ *
+ * Supported sensors:
+ * - LSM6DS3:
+ *   - Accelerometer/Gyroscope supported ODR [Hz]: 13, 26, 52, 104, 208, 416
+ *   - Accelerometer supported full-scale [g]: +-2/+-4/+-8/+-16
+ *   - Gyroscope supported full-scale [dps]: +-125/+-245/+-500/+-1000/+-2000
+ *   - FIFO size: 8KB
+ *
+ * - LSM6DSM:
+ *   - Accelerometer/Gyroscope supported ODR [Hz]: 13, 26, 52, 104, 208, 416
+ *   - Accelerometer supported full-scale [g]: +-2/+-4/+-8/+-16
+ *   - Gyroscope supported full-scale [dps]: +-125/+-245/+-500/+-1000/+-2000
+ *   - FIFO size: 4KB
+ *
  * Copyright 2016 STMicroelectronics Inc.
  *
  * Lorenzo Bianconi <lorenzo.bianconi@st.com>
