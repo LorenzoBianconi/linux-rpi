@@ -187,6 +187,20 @@ out:
 	return err < 0 ? err : 0;
 }
 
+/**
+ * st_lsm6dsx_read_fifo() - LSM6DS3-LSM6DSM read FIFO routine
+ * @hw: Pointer to instance of struct st_lsm6dsx_hw.
+ *
+ * Samples are queued in the FIFO without any tag according to a specific
+ * pattern based on 'FIFO data set' consisting of 6 bytes each: first data set
+ * is reserved for gyroscope data, second data set is reserved for
+ * accelerometer data. All data sets can be stored in the FIFO at different
+ * ODRs by setting decimation factors. The first sequence saved in the FIFO
+ * contains samples of the all enabled sensors, then data are repeated
+ * depending on the value of decimation factors
+ *
+ * Return: Number of bytes read from the FIFO
+ */
 static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 {
 	u16 fifo_len, pattern_len = hw->sip * ST_LSM6DSX_SAMPLE_SIZE;
@@ -209,7 +223,11 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 	samples = fifo_len / ST_LSM6DSX_SAMPLE_SIZE;
 	fifo_len = (fifo_len / pattern_len) * pattern_len;
 
-	/* compute delta timestamp */
+	/*
+	 * compute delta timestamp between two consecutive samples
+	 * in order to estimate queueing time of data generated
+	 * by the sensor
+	 */
 	acc_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_ACC]);
 	acc_ts = acc_sensor->ts - acc_sensor->delta_ts;
 	acc_delta_ts = div_s64(acc_sensor->delta_ts * acc_sensor->decimator,
@@ -305,6 +323,10 @@ static int st_lsm6dsx_update_fifo(struct iio_dev *iio_dev, bool enable)
 		if (err < 0)
 			return err;
 
+		/*
+		 * store enable buffer timestamp as reference to compute
+		 * first delta timestamp
+		 */
 		sensor->ts = iio_get_time_ns();
 	}
 

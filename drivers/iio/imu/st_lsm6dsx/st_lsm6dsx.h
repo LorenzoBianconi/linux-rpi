@@ -56,6 +56,19 @@ enum st_lsm6dsx_fifo_mode {
 	ST_LSM6DSX_FIFO_CONT = 0x6,
 };
 
+/**
+ * struct st_lsm6dsx_sensor - ST IMU sensor instance
+ * @id: Sensor identifier.
+ * @hw: Pointer to instance of struct st_lsm6dsx_hw.
+ * @gain: Configured sensor sensitivity.
+ * @odr: Output data rate of the sensor [Hz].
+ * @watermark: Sensor watermark level.
+ * @sip: Number of samples in a given pattern.
+ * @decimator: FIFO decimation factor.
+ * @decimator_mask: Sensor mask for decimation register.
+ * @delta_ts: Delta time between two consecutive interrupts.
+ * @ts: Latest timestamp from the interrupt handler.
+ */
 struct st_lsm6dsx_sensor {
 	enum st_lsm6dsx_sensor_id id;
 	struct st_lsm6dsx_hw *hw;
@@ -72,6 +85,21 @@ struct st_lsm6dsx_sensor {
 	s64 ts;
 };
 
+/**
+ * struct st_lsm6dsx_hw - ST IMU MEMS hw instance
+ * @name: Pointer to the device name (I2C name or SPI modalias).
+ * @dev: Pointer to instance of struct device (I2C or SPI).
+ * @irq: Device interrupt line (I2C or SPI).
+ * @lock: Mutex to protect read and write operations.
+ * @fifo_lock: Mutex to prevent concurrent access to the hw FIFO.
+ * @fifo_mode: FIFO operating mode supported by the device.
+ * @enable_mask: Enabled sensor bitmask.
+ * @sip: Total number of samples (acc/gyro) in a given pattern.
+ * @iio_devs: Pointers to acc/gyro iio_dev instances.
+ * @settings: Pointer to the specific sensor settings in use.
+ * @tf: Transfer function structure used by I/O operations.
+ * @tb: Transfer buffers used by SPI I/O operations.
+ */
 struct st_lsm6dsx_hw {
 	const char *name;
 	struct device *dev;
