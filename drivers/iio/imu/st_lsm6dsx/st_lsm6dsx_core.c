@@ -18,34 +18,34 @@
 
 #include "st_lsm6dsx.h"
 
-#define ST_LSM6DSX_REG_ACC_DEC_MASK		0x07
-#define ST_LSM6DSX_REG_GYRO_DEC_MASK		0x38
+#define ST_LSM6DSX_REG_ACC_DEC_MASK		GENMASK(2, 0)
+#define ST_LSM6DSX_REG_GYRO_DEC_MASK		GENMASK(5, 3)
 #define ST_LSM6DSX_REG_INT1_ADDR		0x0d
-#define ST_LSM6DSX_REG_FIFO_FTH_IRQ_MASK	0x08
+#define ST_LSM6DSX_REG_FIFO_FTH_IRQ_MASK	BIT(3)
 #define ST_LSM6DSX_REG_WHOAMI_ADDR		0x0f
 #define ST_LSM6DSX_REG_RESET_ADDR		0x12
-#define ST_LSM6DSX_REG_RESET_MASK		0x01
+#define ST_LSM6DSX_REG_RESET_MASK		BIT(0)
 #define ST_LSM6DSX_REG_BDU_ADDR			0x12
-#define ST_LSM6DSX_REG_BDU_MASK			0x40
+#define ST_LSM6DSX_REG_BDU_MASK			BIT(6)
 #define ST_LSM6DSX_REG_INT2_ON_INT1_ADDR	0x13
-#define ST_LSM6DSX_REG_INT2_ON_INT1_MASK	0x20
+#define ST_LSM6DSX_REG_INT2_ON_INT1_MASK	BIT(5)
 #define ST_LSM6DSX_REG_ROUNDING_ADDR		0x16
-#define ST_LSM6DSX_REG_ROUNDING_MASK		0x04
+#define ST_LSM6DSX_REG_ROUNDING_MASK		BIT(2)
 #define ST_LSM6DSX_REG_LIR_ADDR			0x58
-#define ST_LSM6DSX_REG_LIR_MASK			0x01
+#define ST_LSM6DSX_REG_LIR_MASK			BIT(0)
 
 #define ST_LSM6DSX_REG_ACC_ODR_ADDR		0x10
-#define ST_LSM6DSX_REG_ACC_ODR_MASK		0xf0
+#define ST_LSM6DSX_REG_ACC_ODR_MASK		GENMASK(7, 4)
 #define ST_LSM6DSX_REG_ACC_FS_ADDR		0x10
-#define ST_LSM6DSX_REG_ACC_FS_MASK		0x0c
+#define ST_LSM6DSX_REG_ACC_FS_MASK		GENMASK(3, 2)
 #define ST_LSM6DSX_REG_ACC_OUT_X_L_ADDR		0x28
 #define ST_LSM6DSX_REG_ACC_OUT_Y_L_ADDR		0x2a
 #define ST_LSM6DSX_REG_ACC_OUT_Z_L_ADDR		0x2c
 
 #define ST_LSM6DSX_REG_GYRO_ODR_ADDR		0x11
-#define ST_LSM6DSX_REG_GYRO_ODR_MASK		0xf0
+#define ST_LSM6DSX_REG_GYRO_ODR_MASK		GENMASK(7, 4)
 #define ST_LSM6DSX_REG_GYRO_FS_ADDR		0x11
-#define ST_LSM6DSX_REG_GYRO_FS_MASK		0x0c
+#define ST_LSM6DSX_REG_GYRO_FS_MASK		GENMASK(3, 2)
 #define ST_LSM6DSX_REG_GYRO_OUT_X_L_ADDR	0x22
 #define ST_LSM6DSX_REG_GYRO_OUT_Y_L_ADDR	0x24
 #define ST_LSM6DSX_REG_GYRO_OUT_Z_L_ADDR	0x26
@@ -149,107 +149,41 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 	},
 };
 
+#define ST_LSM6DSX_CHANNEL(chan_type, addr, mod, scan_idx)		\
+{									\
+	.type = chan_type,						\
+	.address = addr,						\
+	.modified = 1,							\
+	.channel2 = mod,						\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |			\
+			      BIT(IIO_CHAN_INFO_SCALE),			\
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	.scan_index = scan_idx,						\
+	.scan_type = {							\
+		.sign = 's',						\
+		.realbits = 16,						\
+		.storagebits = 16,					\
+		.endianness = IIO_LE,					\
+	},								\
+}
+
 static const struct iio_chan_spec st_lsm6dsx_acc_channels[] = {
-	{
-		.type = IIO_ACCEL,
-		.address = ST_LSM6DSX_REG_ACC_OUT_X_L_ADDR,
-		.modified = 1,
-		.channel2 = IIO_MOD_X,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SCALE),
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.scan_index = 0,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 16,
-			.storagebits = 16,
-			.endianness = IIO_LE,
-		},
-	},
-	{
-		.type = IIO_ACCEL,
-		.address = ST_LSM6DSX_REG_ACC_OUT_Y_L_ADDR,
-		.modified = 1,
-		.channel2 = IIO_MOD_Y,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SCALE),
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.scan_index = 1,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 16,
-			.storagebits = 16,
-			.endianness = IIO_LE,
-		},
-	},
-	{
-		.type = IIO_ACCEL,
-		.address = ST_LSM6DSX_REG_ACC_OUT_Z_L_ADDR,
-		.modified = 1,
-		.channel2 = IIO_MOD_Z,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SCALE),
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.scan_index = 2,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 16,
-			.storagebits = 16,
-			.endianness = IIO_LE,
-		},
-	},
+	ST_LSM6DSX_CHANNEL(IIO_ACCEL, ST_LSM6DSX_REG_ACC_OUT_X_L_ADDR,
+			   IIO_MOD_X, 0),
+	ST_LSM6DSX_CHANNEL(IIO_ACCEL, ST_LSM6DSX_REG_ACC_OUT_Y_L_ADDR,
+			   IIO_MOD_Y, 1),
+	ST_LSM6DSX_CHANNEL(IIO_ACCEL, ST_LSM6DSX_REG_ACC_OUT_Z_L_ADDR,
+			   IIO_MOD_Z, 2),
 	IIO_CHAN_SOFT_TIMESTAMP(3),
 };
 
 static const struct iio_chan_spec st_lsm6dsx_gyro_channels[] = {
-	{
-		.type = IIO_ANGL_VEL,
-		.address = ST_LSM6DSX_REG_GYRO_OUT_X_L_ADDR,
-		.modified = 1,
-		.channel2 = IIO_MOD_X,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SCALE),
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.scan_index = 0,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 16,
-			.storagebits = 16,
-			.endianness = IIO_LE,
-		},
-	},
-	{
-		.type = IIO_ANGL_VEL,
-		.address = ST_LSM6DSX_REG_GYRO_OUT_Y_L_ADDR,
-		.modified = 1,
-		.channel2 = IIO_MOD_Y,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SCALE),
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.scan_index = 1,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 16,
-			.storagebits = 16,
-			.endianness = IIO_LE,
-		},
-	},
-	{
-		.type = IIO_ANGL_VEL,
-		.address = ST_LSM6DSX_REG_GYRO_OUT_Z_L_ADDR,
-		.modified = 1,
-		.channel2 = IIO_MOD_Z,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SCALE),
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.scan_index = 2,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 16,
-			.storagebits = 16,
-			.endianness = IIO_LE,
-		},
-	},
+	ST_LSM6DSX_CHANNEL(IIO_ANGL_VEL, ST_LSM6DSX_REG_GYRO_OUT_X_L_ADDR,
+			   IIO_MOD_X, 0),
+	ST_LSM6DSX_CHANNEL(IIO_ANGL_VEL, ST_LSM6DSX_REG_GYRO_OUT_Y_L_ADDR,
+			   IIO_MOD_Y, 1),
+	ST_LSM6DSX_CHANNEL(IIO_ANGL_VEL, ST_LSM6DSX_REG_GYRO_OUT_Z_L_ADDR,
+			   IIO_MOD_Z, 2),
 	IIO_CHAN_SOFT_TIMESTAMP(3),
 };
 
@@ -336,7 +270,8 @@ static int st_lsm6dsx_set_full_scale(struct st_lsm6dsx_sensor *sensor,
 static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
 {
 	enum st_lsm6dsx_sensor_id id = sensor->id;
-	int i, err, val;
+	int i, err;
+	u8 val;
 
 	for (i = 0; i < ST_LSM6DSX_ODR_LIST_SIZE; i++)
 		if (st_lsm6dsx_odr_table[id].odr_avl[i].hz == odr)

@@ -18,14 +18,14 @@
 
 #define ST_LSM6DSX_REG_FIFO_THL_ADDR		0x06
 #define ST_LSM6DSX_REG_FIFO_THH_ADDR		0x07
-#define ST_LSM6DSX_FIFO_TH_MASK			0x0fff
+#define ST_LSM6DSX_FIFO_TH_MASK			GENMASK(11, 0)
 #define ST_LSM6DSX_REG_FIFO_DEC_GXL_ADDR	0x08
 #define ST_LSM6DSX_REG_FIFO_MODE_ADDR		0x0a
-#define ST_LSM6DSX_FIFO_MODE_MASK		0x07
-#define ST_LSM6DSX_FIFO_ODR_MASK		0x78
+#define ST_LSM6DSX_FIFO_MODE_MASK		GENMASK(2, 0)
+#define ST_LSM6DSX_FIFO_ODR_MASK		GENMASK(6, 3)
 #define ST_LSM6DSX_REG_FIFO_DIFFL_ADDR		0x3a
-#define ST_LSM6DSX_FIFO_DIFF_MASK		0x0f
-#define ST_LSM6DSX_FIFO_EMPTY_MASK		0x10
+#define ST_LSM6DSX_FIFO_DIFF_MASK		GENMASK(3, 0)
+#define ST_LSM6DSX_FIFO_EMPTY_MASK		BIT(4)
 #define ST_LSM6DSX_REG_FIFO_OUTL_ADDR		0x3e
 
 #define ST_LSM6DSX_MAX_FIFO_ODR_VAL		0x08
@@ -49,7 +49,8 @@ struct st_lsm6dsx_decimator_entry st_lsm6dsx_decimator_table[] = {
 
 static int st_lsm6dsx_get_decimator_val(u8 val)
 {
-	int i, max_size = ARRAY_SIZE(st_lsm6dsx_decimator_table);
+	const int max_size = ARRAY_SIZE(st_lsm6dsx_decimator_table);
+	int i;
 
 	for (i = 0; i < max_size; i++)
 		if (st_lsm6dsx_decimator_table[i].decimator == val)

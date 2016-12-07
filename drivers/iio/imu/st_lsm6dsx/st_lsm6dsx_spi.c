@@ -17,7 +17,7 @@
 
 #include "st_lsm6dsx.h"
 
-#define SENSORS_SPI_READ	0x80
+#define SENSORS_SPI_READ	BIT(7)
 
 static int st_lsm6dsx_spi_read(struct device *dev, u8 addr, int len,
 			       u8 *data)
