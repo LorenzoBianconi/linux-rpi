@@ -306,7 +306,8 @@ static int st_lsm6dsx_check_whoami(struct st_lsm6dsx_hw *hw)
 	return 0;
 }
 
-static int st_lsm6dsx_set_fs(struct st_lsm6dsx_sensor *sensor, u32 gain)
+static int st_lsm6dsx_set_full_scale(struct st_lsm6dsx_sensor *sensor,
+				     u32 gain)
 {
 	enum st_lsm6dsx_sensor_id id = sensor->id;
 	int i, err;
@@ -457,7 +458,7 @@ static int st_lsm6dsx_write_raw(struct iio_dev *iio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
-		err = st_lsm6dsx_set_fs(sensor, val2);
+		err = st_lsm6dsx_set_full_scale(sensor, val2);
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		err = st_lsm6dsx_set_odr(sensor, val);
@@ -492,9 +493,9 @@ static int st_lsm6dsx_set_watermark(struct iio_dev *iio_dev, unsigned int val)
 }
 
 static ssize_t
-st_lsm6dsx_sysfs_sampling_frequency_avl(struct device *dev,
-					struct device_attribute *attr,
-					char *buf)
+st_lsm6dsx_sysfs_sampling_frequency_avail(struct device *dev,
+					  struct device_attribute *attr,
+					  char *buf)
 {
 	struct st_lsm6dsx_sensor *sensor = iio_priv(dev_get_drvdata(dev));
 	enum st_lsm6dsx_sensor_id id = sensor->id;
@@ -524,7 +525,7 @@ static ssize_t st_lsm6dsx_sysfs_scale_avail(struct device *dev,
 	return len;
 }
 
-static IIO_DEV_ATTR_SAMP_FREQ_AVAIL(st_lsm6dsx_sysfs_sampling_frequency_avl);
+static IIO_DEV_ATTR_SAMP_FREQ_AVAIL(st_lsm6dsx_sysfs_sampling_frequency_avail);
 static IIO_DEVICE_ATTR(in_accel_scale_available, 0444,
 		       st_lsm6dsx_sysfs_scale_avail, NULL, 0);
 static IIO_DEVICE_ATTR(in_anglvel_scale_available, 0444,
@@ -587,7 +588,7 @@ static int st_lsm6dsx_init_device(struct st_lsm6dsx_hw *hw)
 	if (err < 0)
 		return err;
 
-	/* enable BDU */
+	/* enable Block Data Update */
 	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_BDU_ADDR,
 					 ST_LSM6DSX_REG_BDU_MASK, 1);
 	if (err < 0)
