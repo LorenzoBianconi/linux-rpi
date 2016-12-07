@@ -22,15 +22,13 @@
 #define ST_LSM6DSX_SAMPLE_DEPTH		(ST_LSM6DSX_SAMPLE_SIZE / \
 					 ST_LSM6DSX_CHAN_SIZE)
 
-#if defined(CONFIG_SPI_MASTER)
-#define ST_LSM6DSX_RX_MAX_LENGTH	256
+#define ST_LSM6DSX_RX_MAX_LENGTH	8
 #define ST_LSM6DSX_TX_MAX_LENGTH	8
 
 struct st_lsm6dsx_transfer_buffer {
 	u8 rx_buf[ST_LSM6DSX_RX_MAX_LENGTH];
 	u8 tx_buf[ST_LSM6DSX_TX_MAX_LENGTH] ____cacheline_aligned;
 };
-#endif /* CONFIG_SPI_MASTER */
 
 struct st_lsm6dsx_transfer_function {
 	int (*read)(struct device *dev, u8 addr, int len, u8 *data);
@@ -119,9 +117,7 @@ struct st_lsm6dsx_hw {
 	const struct st_lsm6dsx_settings *settings;
 
 	const struct st_lsm6dsx_transfer_function *tf;
-#if defined(CONFIG_SPI_MASTER)
 	struct st_lsm6dsx_transfer_buffer tb;
-#endif /* CONFIG_SPI_MASTER */
 };
 
 int st_lsm6dsx_probe(struct st_lsm6dsx_hw *hw);
