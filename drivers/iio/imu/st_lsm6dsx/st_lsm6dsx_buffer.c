@@ -315,7 +315,7 @@ static int st_lsm6dsx_update_fifo(struct iio_dev *iio_dev, bool enable)
 	return 0;
 }
 
-static irqreturn_t st_lsm6dsx_ring_handler_irq(int irq, void *private)
+static irqreturn_t st_lsm6dsx_handler_irq(int irq, void *private)
 {
 	struct st_lsm6dsx_hw *hw = (struct st_lsm6dsx_hw *)private;
 	struct st_lsm6dsx_sensor *sensor;
@@ -339,7 +339,7 @@ static irqreturn_t st_lsm6dsx_ring_handler_irq(int irq, void *private)
 	return IRQ_WAKE_THREAD;
 }
 
-static irqreturn_t st_lsm6dsx_ring_handler_thread(int irq, void *private)
+static irqreturn_t st_lsm6dsx_handler_thread(int irq, void *private)
 {
 	struct st_lsm6dsx_hw *hw = (struct st_lsm6dsx_hw *)private;
 	int count;
@@ -366,7 +366,7 @@ static const struct iio_buffer_setup_ops st_lsm6dsx_buffer_ops = {
 	.postdisable = st_lsm6dsx_buffer_postdisable,
 };
 
-int st_lsm6dsx_allocate_rings(struct st_lsm6dsx_hw *hw)
+int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_hw *hw)
 {
 	struct iio_buffer *buffer;
 	unsigned long irq_type;
@@ -387,8 +387,8 @@ int st_lsm6dsx_allocate_rings(struct st_lsm6dsx_hw *hw)
 	}
 
 	err = devm_request_threaded_irq(hw->dev, hw->irq,
-					st_lsm6dsx_ring_handler_irq,
-					st_lsm6dsx_ring_handler_thread,
+					st_lsm6dsx_handler_irq,
+					st_lsm6dsx_handler_thread,
 					irq_type | IRQF_ONESHOT,
 					hw->name, hw);
 	if (err) {

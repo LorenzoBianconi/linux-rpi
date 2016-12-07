@@ -677,7 +677,7 @@ int st_lsm6dsx_probe(struct st_lsm6dsx_hw *hw)
 		return err;
 
 	if (hw->irq > 0) {
-		err = st_lsm6dsx_allocate_rings(hw);
+		err = st_lsm6dsx_allocate_buffers(hw);
 		if (err < 0)
 			return err;
 	}
