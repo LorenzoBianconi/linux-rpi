@@ -190,11 +190,11 @@ out:
 static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 {
 	u16 fifo_len, pattern_len = hw->sip * ST_LSM6DSX_SAMPLE_SIZE;
-	int err, acc_sip, gyro_sip, read_len, offset, samples;
 	struct st_lsm6dsx_sensor *acc_sensor, *gyro_sensor;
 	s64 acc_ts, acc_delta_ts, gyro_ts, gyro_delta_ts;
-	u8 iio_buf[ALIGN(ST_LSM6DSX_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
-	u8 fifo_status[2], buf[pattern_len];
+	int err, acc_sip, gyro_sip, read_len, samples;
+	u8 buff[ALIGN(ST_LSM6DSX_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
+	u8 fifo_status[2];
 
 	err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_FIFO_DIFFL_ADDR,
 			   sizeof(fifo_status), fifo_status);
@@ -208,11 +208,6 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 	fifo_len = (u16)get_unaligned_le16(fifo_status) * ST_LSM6DSX_CHAN_SIZE;
 	samples = fifo_len / ST_LSM6DSX_SAMPLE_SIZE;
 	fifo_len = (fifo_len / pattern_len) * pattern_len;
-	/*
-	 * leave one complete pattern in FIFO to guarantee
-	 * proper alignment
-	 */
-	fifo_len -= pattern_len;
 
 	/* compute delta timestamp */
 	acc_sensor = iio_priv(hw->iio_devs[ST_LSM6DSX_ID_ACC]);
@@ -226,33 +221,33 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 				samples);
 
 	for (read_len = 0; read_len < fifo_len; read_len += pattern_len) {
-		err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
-				   sizeof(buf), buf);
-		if (err < 0)
-			return err;
-
 		gyro_sip = gyro_sensor->sip;
 		acc_sip = acc_sensor->sip;
-		offset = 0;
 
 		while (acc_sip > 0 || gyro_sip > 0) {
 			if (gyro_sip-- > 0) {
-				memcpy(iio_buf, &buf[offset],
-				       ST_LSM6DSX_SAMPLE_SIZE);
+				err = hw->tf->read(hw->dev,
+						ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
+						ST_LSM6DSX_SAMPLE_SIZE, buff);
+				if (err < 0)
+					return err;
+
 				iio_push_to_buffers_with_timestamp(
 					hw->iio_devs[ST_LSM6DSX_ID_GYRO],
-					iio_buf, gyro_ts);
-				offset += ST_LSM6DSX_SAMPLE_SIZE;
+					buff, gyro_ts);
 				gyro_ts += gyro_delta_ts;
 			}
 
 			if (acc_sip-- > 0) {
-				memcpy(iio_buf, &buf[offset],
-				       ST_LSM6DSX_SAMPLE_SIZE);
+				err = hw->tf->read(hw->dev,
+						ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
+						ST_LSM6DSX_SAMPLE_SIZE, buff);
+				if (err < 0)
+					return err;
+
 				iio_push_to_buffers_with_timestamp(
 					hw->iio_devs[ST_LSM6DSX_ID_ACC],
-					iio_buf, acc_ts);
-				offset += ST_LSM6DSX_SAMPLE_SIZE;
+					buff, acc_ts);
 				acc_ts += acc_delta_ts;
 			}
 		}
