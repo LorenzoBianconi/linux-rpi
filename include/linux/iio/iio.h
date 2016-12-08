@@ -238,9 +238,13 @@ struct iio_chan_spec {
 		enum iio_endian endianness;
 	} scan_type;
 	long			info_mask_separate;
+	long			info_mask_separate_available;
 	long			info_mask_shared_by_type;
+	long			info_mask_shared_by_type_available;
 	long			info_mask_shared_by_dir;
+	long			info_mask_shared_by_dir_available;
 	long			info_mask_shared_by_all;
+	long			info_mask_shared_by_all_available;
 	const struct iio_event_spec *event_spec;
 	unsigned int		num_event_specs;
 	const struct iio_chan_spec_ext_info *ext_info;
@@ -268,6 +272,23 @@ static inline bool iio_channel_has_info(const struct iio_chan_spec *chan,
 		(chan->info_mask_shared_by_type & BIT(type)) |
 		(chan->info_mask_shared_by_dir & BIT(type)) |
 		(chan->info_mask_shared_by_all & BIT(type));
+}
+
+/**
+ * iio_channel_has_available() - Checks if a channel has an available attribute
+ * @chan: The channel to be queried
+ * @type: Type of the available attribute to be checked
+ *
+ * Returns true if the channel supports reporting available values for the
+ * given attribute type, false otherwise.
+ */
+static inline bool iio_channel_has_available(const struct iio_chan_spec *chan,
+					     enum iio_chan_info_enum type)
+{
+	return (chan->info_mask_separate_available & BIT(type)) |
+		(chan->info_mask_shared_by_type_available & BIT(type)) |
+		(chan->info_mask_shared_by_dir_available & BIT(type)) |
+		(chan->info_mask_shared_by_all_available & BIT(type));
 }
 
 #define IIO_CHAN_SOFT_TIMESTAMP(_si) {					\
@@ -370,6 +391,13 @@ struct iio_info {
 			int *vals,
 			int *val_len,
 			long mask);
+
+	int (*read_avail)(struct iio_dev *indio_dev,
+			  struct iio_chan_spec const *chan,
+			  const int **vals,
+			  int *type,
+			  int *length,
+			  long mask);
 
 	int (*write_raw)(struct iio_dev *indio_dev,
 			 struct iio_chan_spec const *chan,
