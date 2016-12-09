@@ -407,11 +407,8 @@ int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_hw *hw)
 	case IRQF_TRIGGER_RISING:
 		break;
 	default:
-		dev_info(hw->dev,
-			 "mode %lx unsupported, using IRQF_TRIGGER_HIGH\n",
-			 irq_type);
-		irq_type = IRQF_TRIGGER_HIGH;
-		break;
+		dev_info(hw->dev, "mode %lx unsupported\n", irq_type);
+		return -EINVAL;
 	}
 
 	err = devm_request_threaded_irq(hw->dev, hw->irq,
