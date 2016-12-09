@@ -27,7 +27,6 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/iio/kfifo_buf.h>
-#include <asm/unaligned.h>
 
 #include "st_lsm6dsx.h"
 
@@ -39,8 +38,8 @@
 #define ST_LSM6DSX_FIFO_MODE_MASK		GENMASK(2, 0)
 #define ST_LSM6DSX_FIFO_ODR_MASK		GENMASK(6, 3)
 #define ST_LSM6DSX_REG_FIFO_DIFFL_ADDR		0x3a
-#define ST_LSM6DSX_FIFO_DIFF_MASK		GENMASK(3, 0)
-#define ST_LSM6DSX_FIFO_EMPTY_MASK		BIT(4)
+#define ST_LSM6DSX_FIFO_DIFF_MASK		GENMASK(11, 0)
+#define ST_LSM6DSX_FIFO_EMPTY_MASK		BIT(12)
 #define ST_LSM6DSX_REG_FIFO_OUTL_ADDR		0x3e
 
 #define ST_LSM6DSX_MAX_FIFO_ODR_VAL		0x08
@@ -161,6 +160,7 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 	u16 fifo_watermark = ~0, cur_watermark, sip = 0;
 	struct st_lsm6dsx_hw *hw = sensor->hw;
 	struct st_lsm6dsx_sensor *cur_sensor;
+	__le16 wdata;
 	int i, err;
 	u8 data;
 
@@ -194,8 +194,9 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 	fifo_watermark = ((data & ~ST_LSM6DSX_FIFO_TH_MASK) << 8) |
 			  (fifo_watermark & ST_LSM6DSX_FIFO_TH_MASK);
 
+	wdata = cpu_to_le16(fifo_watermark);
 	err = hw->tf->write(hw->dev, ST_LSM6DSX_REG_FIFO_THL_ADDR,
-			    sizeof(fifo_watermark), (u8 *)&fifo_watermark);
+			    sizeof(wdata), (u8 *)&wdata);
 out:
 	mutex_unlock(&hw->lock);
 
@@ -212,23 +213,23 @@ out:
  */
 static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 {
+	u8 buff[ALIGN(ST_LSM6DSX_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
 	u16 fifo_len, pattern_len = hw->sip * ST_LSM6DSX_SAMPLE_SIZE;
 	struct st_lsm6dsx_sensor *acc_sensor, *gyro_sensor;
 	s64 acc_ts, acc_delta_ts, gyro_ts, gyro_delta_ts;
 	int err, acc_sip, gyro_sip, read_len, samples;
-	u8 buff[ALIGN(ST_LSM6DSX_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
-	u8 fifo_status[2];
+	__le16 fifo_status;
 
 	err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_FIFO_DIFFL_ADDR,
-			   sizeof(fifo_status), fifo_status);
+			   sizeof(fifo_status), (u8 *)&fifo_status);
 	if (err < 0)
 		return err;
 
-	if (fifo_status[1] & ST_LSM6DSX_FIFO_EMPTY_MASK)
+	if (fifo_status & cpu_to_le16(ST_LSM6DSX_FIFO_EMPTY_MASK))
 		return 0;
 
-	fifo_status[1] &= ST_LSM6DSX_FIFO_DIFF_MASK;
-	fifo_len = (u16)get_unaligned_le16(fifo_status) * ST_LSM6DSX_CHAN_SIZE;
+	fifo_len = (le16_to_cpu(fifo_status) & ST_LSM6DSX_FIFO_DIFF_MASK) *
+		   ST_LSM6DSX_CHAN_SIZE;
 	samples = fifo_len / ST_LSM6DSX_SAMPLE_SIZE;
 	fifo_len = (fifo_len / pattern_len) * pattern_len;
 

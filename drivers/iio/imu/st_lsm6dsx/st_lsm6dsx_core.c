@@ -36,7 +36,6 @@
 #include <linux/delay.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
-#include <asm/unaligned.h>
 
 #include "st_lsm6dsx.h"
 
@@ -348,7 +347,7 @@ static int st_lsm6dsx_read_oneshot(struct st_lsm6dsx_sensor *sensor,
 				   u8 addr, int *val)
 {
 	int err, delay;
-	u8 data[2];
+	__le16 data;
 
 	err = st_lsm6dsx_sensor_enable(sensor);
 	if (err < 0)
@@ -357,13 +356,14 @@ static int st_lsm6dsx_read_oneshot(struct st_lsm6dsx_sensor *sensor,
 	delay = 1000000 / sensor->odr;
 	usleep_range(delay, 2 * delay);
 
-	err = sensor->hw->tf->read(sensor->hw->dev, addr, sizeof(data), data);
+	err = sensor->hw->tf->read(sensor->hw->dev, addr, sizeof(data),
+				   (u8 *)&data);
 	if (err < 0)
 		return err;
 
 	st_lsm6dsx_sensor_disable(sensor);
 
-	*val = (s16)get_unaligned_le16(data);
+	*val = (s16)data;
 
 	return IIO_VAL_INT;
 }
