@@ -213,11 +213,12 @@ out:
  */
 static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 {
-	u8 buff[ALIGN(ST_LSM6DSX_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
 	u16 fifo_len, pattern_len = hw->sip * ST_LSM6DSX_SAMPLE_SIZE;
+	int err, acc_sip, gyro_sip, read_len, samples, offset;
 	struct st_lsm6dsx_sensor *acc_sensor, *gyro_sensor;
 	s64 acc_ts, acc_delta_ts, gyro_ts, gyro_delta_ts;
-	int err, acc_sip, gyro_sip, read_len, samples;
+	u8 iio_buff[ALIGN(ST_LSM6DSX_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
+	u8 buff[pattern_len];
 	__le16 fifo_status;
 
 	err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_FIFO_DIFFL_ADDR,
@@ -249,33 +250,33 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 				samples);
 
 	for (read_len = 0; read_len < fifo_len; read_len += pattern_len) {
+		err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
+				   sizeof(buff), buff);
+		if (err < 0)
+			return err;
+
 		gyro_sip = gyro_sensor->sip;
 		acc_sip = acc_sensor->sip;
+		offset = 0;
 
 		while (acc_sip > 0 || gyro_sip > 0) {
 			if (gyro_sip-- > 0) {
-				err = hw->tf->read(hw->dev,
-						ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
-						ST_LSM6DSX_SAMPLE_SIZE, buff);
-				if (err < 0)
-					return err;
-
+				memcpy(iio_buff, &buff[offset],
+				       ST_LSM6DSX_SAMPLE_SIZE);
 				iio_push_to_buffers_with_timestamp(
 					hw->iio_devs[ST_LSM6DSX_ID_GYRO],
-					buff, gyro_ts);
+					iio_buff, gyro_ts);
+				offset += ST_LSM6DSX_SAMPLE_SIZE;
 				gyro_ts += gyro_delta_ts;
 			}
 
 			if (acc_sip-- > 0) {
-				err = hw->tf->read(hw->dev,
-						ST_LSM6DSX_REG_FIFO_OUTL_ADDR,
-						ST_LSM6DSX_SAMPLE_SIZE, buff);
-				if (err < 0)
-					return err;
-
+				memcpy(iio_buff, &buff[offset],
+				       ST_LSM6DSX_SAMPLE_SIZE);
 				iio_push_to_buffers_with_timestamp(
 					hw->iio_devs[ST_LSM6DSX_ID_ACC],
-					buff, acc_ts);
+					iio_buff, acc_ts);
+				offset += ST_LSM6DSX_SAMPLE_SIZE;
 				acc_ts += acc_delta_ts;
 			}
 		}
