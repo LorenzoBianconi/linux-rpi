@@ -37,11 +37,14 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
+#include <linux/platform_data/st_sensors_pdata.h>
+
 #include "st_lsm6dsx.h"
 
 #define ST_LSM6DSX_REG_ACC_DEC_MASK		GENMASK(2, 0)
 #define ST_LSM6DSX_REG_GYRO_DEC_MASK		GENMASK(5, 3)
 #define ST_LSM6DSX_REG_INT1_ADDR		0x0d
+#define ST_LSM6DSX_REG_INT2_ADDR		0x0e
 #define ST_LSM6DSX_REG_FIFO_FTH_IRQ_MASK	BIT(3)
 #define ST_LSM6DSX_REG_WHOAMI_ADDR		0x0f
 #define ST_LSM6DSX_REG_RESET_ADDR		0x12
@@ -532,6 +535,77 @@ static const struct iio_info st_lsm6dsx_gyro_info = {
 
 static const unsigned long st_lsm6dsx_available_scan_masks[] = {0x7, 0x0};
 
+static inline int st_lsm6dsx_parse_drdy_pin(struct st_lsm6dsx_hw *hw,
+					    int drdy_pin)
+{
+	int err = 0;
+
+	switch (drdy_pin) {
+	case 1:
+		hw->drdy_int_reg = ST_LSM6DSX_REG_INT1_ADDR;
+		break;
+	case 2:
+		hw->drdy_int_reg = ST_LSM6DSX_REG_INT2_ADDR;
+		break;
+	default:
+		dev_err(hw->dev, "unsupported drdy pin\n");
+		err = -EINVAL;
+		break;
+	}
+
+	return err;
+}
+
+#ifdef CONFIG_OF
+static int st_lsm6dsx_of_get_drdy_pin(struct st_lsm6dsx_hw *hw)
+{
+	struct device_node *np = hw->dev->of_node;
+	int err, drdy_pin;
+
+	if (!np)
+		return -EINVAL;
+
+	err = of_property_read_u32(np, "st,drdy-int-pin", &drdy_pin);
+	if (!err) {
+		err = st_lsm6dsx_parse_drdy_pin(hw, drdy_pin);
+	} else if (err == -ENODATA) {
+		/* if the property has not been specified use default value */
+		hw->drdy_int_reg = ST_LSM6DSX_REG_INT1_ADDR;
+		err = 0;
+	} 
+	
+	return err;
+}
+#else
+static int st_lsm6dsx_of_get_drdy_pin(struct st_lsm6dsx_hw *hw)
+{
+	return -EINVAL;
+}
+#endif /* CONFIG_OF */
+
+static int st_lsm6dsx_get_drdy_pin(struct st_lsm6dsx_hw *hw)
+{
+	int err;
+
+	err = st_lsm6dsx_of_get_drdy_pin(hw);
+	if (err < 0) {
+		struct st_sensors_platform_data *pdata;
+		struct device *dev = hw->dev;
+
+		pdata = (struct st_sensors_platform_data *)dev->platform_data;
+		if (!pdata) {
+			/* use default value */
+			hw->drdy_int_reg = ST_LSM6DSX_REG_INT1_ADDR;
+			err = 0;
+		} else {
+			err = st_lsm6dsx_parse_drdy_pin(hw,
+							pdata->drdy_int_pin);
+		}
+	}
+
+	return err;
+}
+
 static int st_lsm6dsx_init_device(struct st_lsm6dsx_hw *hw)
 {
 	int err;
@@ -563,14 +637,12 @@ static int st_lsm6dsx_init_device(struct st_lsm6dsx_hw *hw)
 		return err;
 
 	/* enable FIFO watermak interrupt */
-	err = st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_INT1_ADDR,
-					 ST_LSM6DSX_REG_FIFO_FTH_IRQ_MASK, 1);
+	err = st_lsm6dsx_get_drdy_pin(hw);
 	if (err < 0)
 		return err;
 
-	/* redirect INT2 on INT1 */
-	return st_lsm6dsx_write_with_mask(hw, ST_LSM6DSX_REG_INT2_ON_INT1_ADDR,
-					  ST_LSM6DSX_REG_INT2_ON_INT1_MASK, 1);
+	return st_lsm6dsx_write_with_mask(hw, hw->drdy_int_reg,
+					  ST_LSM6DSX_REG_FIFO_FTH_IRQ_MASK, 1);
 }
 
 static struct iio_dev *st_lsm6dsx_alloc_iiodev(struct st_lsm6dsx_hw *hw,
