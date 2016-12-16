@@ -92,6 +92,7 @@ struct st_lsm6dsx_sensor {
  * @name: Pointer to the device name (I2C name or SPI modalias).
  * @dev: Pointer to instance of struct device (I2C or SPI).
  * @irq: Device interrupt line (I2C or SPI).
+ * @drdy_int_reg: DRDY INT register address.
  * @lock: Mutex to protect read and write operations.
  * @fifo_lock: Mutex to prevent concurrent access to the hw FIFO.
  * @fifo_mode: FIFO operating mode supported by the device.
@@ -105,7 +106,9 @@ struct st_lsm6dsx_sensor {
 struct st_lsm6dsx_hw {
 	const char *name;
 	struct device *dev;
+
 	int irq;
+	u8 drdy_int_reg;
 
 	struct mutex lock;
 	struct mutex fifo_lock;
