@@ -78,19 +78,19 @@ static int st_lsm6dsx_i2c_probe(struct i2c_client *client,
 static const struct of_device_id st_lsm6dsx_i2c_of_match[] = {
 	{
 		.compatible = "st,lsm6ds3",
-		.data = ST_LSM6DS3_DEV_NAME,
+		.data = (void *)ST_LSM6DS3,
 	},
 	{
 		.compatible = "st,lsm6dsm",
-		.data = ST_LSM6DSM_DEV_NAME,
+		.data = (void *)ST_LSM6DSM,
 	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, st_lsm6dsx_i2c_of_match);
 
 static const struct i2c_device_id st_lsm6dsx_i2c_id_table[] = {
-	{ ST_LSM6DS3_DEV_NAME },
-	{ ST_LSM6DSM_DEV_NAME },
+	{ ST_LSM6DS3_DEV_NAME, ST_LSM6DS3 },
+	{ ST_LSM6DSM_DEV_NAME, ST_LSM6DSM },
 	{},
 };
 MODULE_DEVICE_TABLE(i2c, st_lsm6dsx_i2c_id_table);

@@ -395,7 +395,7 @@ static const struct iio_buffer_setup_ops st_lsm6dsx_buffer_ops = {
 	.postdisable = st_lsm6dsx_buffer_postdisable,
 };
 
-int st_lsm6dsx_allocate_buffers(struct st_lsm6dsx_hw *hw)
+int st_lsm6dsx_fifo_setup(struct st_lsm6dsx_hw *hw)
 {
 	struct iio_buffer *buffer;
 	unsigned long irq_type;
