@@ -17,9 +17,9 @@
 #define ST_LSM6DS3_DEV_NAME	"lsm6ds3"
 #define ST_LSM6DSM_DEV_NAME	"lsm6dsm"
 
-enum {
-	ST_LSM6DS3,
-	ST_LSM6DSM,
+enum st_lsm6dsx_hw_id {
+	ST_LSM6DS3_ID,
+	ST_LSM6DSM_ID,
 };
 
 #define ST_LSM6DSX_CHAN_SIZE		2
@@ -50,6 +50,7 @@ struct st_lsm6dsx_reg {
 struct st_lsm6dsx_settings {
 	u8 wai;
 	u16 max_fifo_size;
+	enum st_lsm6dsx_hw_id id;
 };
 
 enum st_lsm6dsx_sensor_id {
@@ -94,7 +95,6 @@ struct st_lsm6dsx_sensor {
 
 /**
  * struct st_lsm6dsx_hw - ST IMU MEMS hw instance
- * @name: Pointer to the device name (I2C name or SPI modalias).
  * @dev: Pointer to instance of struct device (I2C or SPI).
  * @irq: Device interrupt line (I2C or SPI).
  * @lock: Mutex to protect read and write operations.
@@ -108,7 +108,6 @@ struct st_lsm6dsx_sensor {
  * @tb: Transfer buffers used by SPI I/O operations.
  */
 struct st_lsm6dsx_hw {
-	const char *name;
 	struct device *dev;
 	int irq;
 
@@ -129,7 +128,8 @@ struct st_lsm6dsx_hw {
 #endif /* CONFIG_SPI_MASTER */
 };
 
-int st_lsm6dsx_probe(struct st_lsm6dsx_hw *hw);
+int st_lsm6dsx_probe(struct device *dev, int irq, int hw_id,
+		     const struct st_lsm6dsx_transfer_function *tf_ops);
 int st_lsm6dsx_sensor_enable(struct st_lsm6dsx_sensor *sensor);
 int st_lsm6dsx_sensor_disable(struct st_lsm6dsx_sensor *sensor);
 int st_lsm6dsx_fifo_setup(struct st_lsm6dsx_hw *hw);

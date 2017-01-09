@@ -163,10 +163,12 @@ static const struct st_lsm6dsx_settings st_lsm6dsx_sensor_settings[] = {
 	{
 		.wai = ST_LSM6DS3_WHOAMI,
 		.max_fifo_size = ST_LSM6DS3_MAX_FIFO_SIZE,
+		.id = ST_LSM6DS3_ID,
 	},
 	{
 		.wai = ST_LSM6DSM_WHOAMI,
 		.max_fifo_size = ST_LSM6DSM_MAX_FIFO_SIZE,
+		.id = ST_LSM6DSM_ID,
 	},
 };
 
@@ -234,10 +236,20 @@ out:
 	return err;
 }
 
-static int st_lsm6dsx_check_whoami(struct st_lsm6dsx_hw *hw)
+static int st_lsm6dsx_check_whoami(struct st_lsm6dsx_hw *hw, int id)
 {
 	int err, i;
 	u8 data;
+
+	for (i = 0; i < ARRAY_SIZE(st_lsm6dsx_sensor_settings); i++) {
+		if (id == st_lsm6dsx_sensor_settings[i].id)
+			break;
+	}
+
+	if (i == ARRAY_SIZE(st_lsm6dsx_sensor_settings)) {
+		dev_err(hw->dev, "unsupported hw id [%02x]\n", id);
+		return -ENODEV;
+	}
 
 	err = hw->tf->read(hw->dev, ST_LSM6DSX_REG_WHOAMI_ADDR, sizeof(data),
 			   &data);
@@ -246,17 +258,12 @@ static int st_lsm6dsx_check_whoami(struct st_lsm6dsx_hw *hw)
 		return err;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(st_lsm6dsx_sensor_settings); i++) {
-		if (data == st_lsm6dsx_sensor_settings[i].wai) {
-			hw->settings = &st_lsm6dsx_sensor_settings[i];
-			break;
-		}
-	}
-
-	if (i == ARRAY_SIZE(st_lsm6dsx_sensor_settings)) {
+	if (data != st_lsm6dsx_sensor_settings[i].wai) {
 		dev_err(hw->dev, "unsupported whoami [%02x]\n", data);
 		return -ENODEV;
 	}
+
+	hw->settings = &st_lsm6dsx_sensor_settings[i];
 
 	return 0;
 }
@@ -375,13 +382,14 @@ static int st_lsm6dsx_read_raw(struct iio_dev *iio_dev,
 	struct st_lsm6dsx_sensor *sensor = iio_priv(iio_dev);
 	int ret;
 
-	ret = iio_device_claim_direct_mode(iio_dev);
-	if (ret)
-		return ret;
-
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
+		ret = iio_device_claim_direct_mode(iio_dev);
+		if (ret)
+			break;
+
 		ret = st_lsm6dsx_read_oneshot(sensor, ch->address, val);
+		iio_device_release_direct_mode(iio_dev);
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val = sensor->odr;
@@ -396,8 +404,6 @@ static int st_lsm6dsx_read_raw(struct iio_dev *iio_dev,
 		ret = -EINVAL;
 		break;
 	}
-
-	iio_device_release_direct_mode(iio_dev);
 
 	return ret;
 }
@@ -612,14 +618,26 @@ static struct iio_dev *st_lsm6dsx_alloc_iiodev(struct st_lsm6dsx_hw *hw,
 	return iio_dev;
 }
 
-int st_lsm6dsx_probe(struct st_lsm6dsx_hw *hw)
+int st_lsm6dsx_probe(struct device *dev, int irq, int hw_id,
+		     const struct st_lsm6dsx_transfer_function *tf_ops)
 {
+	struct st_lsm6dsx_hw *hw;
 	int i, err;
+
+	hw = devm_kzalloc(dev, sizeof(*hw), GFP_KERNEL);
+	if (!hw)
+		return -ENOMEM;
+
+	dev_set_drvdata(dev, (void *)hw);
 
 	mutex_init(&hw->lock);
 	mutex_init(&hw->fifo_lock);
 
-	err = st_lsm6dsx_check_whoami(hw);
+	hw->dev = dev;
+	hw->irq = irq;
+	hw->tf = tf_ops;
+
+	err = st_lsm6dsx_check_whoami(hw, hw_id);
 	if (err < 0)
 		return err;
 

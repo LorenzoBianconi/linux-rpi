@@ -75,37 +75,29 @@ static const struct st_lsm6dsx_transfer_function st_lsm6dsx_transfer_fn = {
 
 static int st_lsm6dsx_spi_probe(struct spi_device *spi)
 {
-	struct st_lsm6dsx_hw *hw;
+	const struct spi_device_id *id = spi_get_device_id(spi);
 
-	hw = devm_kzalloc(&spi->dev, sizeof(*hw), GFP_KERNEL);
-	if (!hw)
-		return -ENOMEM;
-
-	spi_set_drvdata(spi, hw);
-	hw->name = spi->modalias;
-	hw->dev = &spi->dev;
-	hw->irq = spi->irq;
-	hw->tf = &st_lsm6dsx_transfer_fn;
-
-	return st_lsm6dsx_probe(hw);
+	return st_lsm6dsx_probe(&spi->dev, spi->irq,
+				(int)id->driver_data,
+				&st_lsm6dsx_transfer_fn);
 }
 
 static const struct of_device_id st_lsm6dsx_spi_of_match[] = {
 	{
 		.compatible = "st,lsm6ds3",
-		.data = (void *)ST_LSM6DS3,
+		.data = (void *)ST_LSM6DS3_ID,
 	},
 	{
 		.compatible = "st,lsm6dsm",
-		.data = (void *)ST_LSM6DSM,
+		.data = (void *)ST_LSM6DSM_ID,
 	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, st_lsm6dsx_spi_of_match);
 
 static const struct spi_device_id st_lsm6dsx_spi_id_table[] = {
-	{ ST_LSM6DS3_DEV_NAME, ST_LSM6DS3 },
-	{ ST_LSM6DSM_DEV_NAME, ST_LSM6DSM },
+	{ ST_LSM6DS3_DEV_NAME, ST_LSM6DS3_ID },
+	{ ST_LSM6DSM_DEV_NAME, ST_LSM6DSM_ID },
 	{},
 };
 MODULE_DEVICE_TABLE(spi, st_lsm6dsx_spi_id_table);

@@ -416,7 +416,7 @@ int st_lsm6dsx_fifo_setup(struct st_lsm6dsx_hw *hw)
 					st_lsm6dsx_handler_irq,
 					st_lsm6dsx_handler_thread,
 					irq_type | IRQF_ONESHOT,
-					hw->name, hw);
+					"lsm6dsx", hw);
 	if (err) {
 		dev_err(hw->dev, "failed to request trigger irq %d\n",
 			hw->irq);
