@@ -257,7 +257,7 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 
 		/*
 		 * Data are written to the FIFO with a specific pattern
-		 * depending on configured the ODRs. The first sequence of data
+		 * depending on the configured ODRs. The first sequence of data
 		 * stored in FIFO contains the data of all enabled sensors
 		 * (e.g. Gx, Gy, Gz, Ax, Ay, Az), then data are repeated
 		 * depending on the value of the decimation factor set for each
