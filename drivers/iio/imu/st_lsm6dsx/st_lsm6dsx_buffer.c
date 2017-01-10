@@ -255,6 +255,21 @@ static int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 		if (err < 0)
 			return err;
 
+		/*
+		 * Data are written to the FIFO with a specific pattern
+		 * depending on configured the ODRs. The first sequence of data
+		 * stored in FIFO contains the data of all enabled sensors
+		 * (e.g. Gx, Gy, Gz, Ax, Ay, Az), then data are repeated
+		 * depending on the value of the decimation factor set for each
+		 * sensor.
+		 *
+		 * Supposing the FIFO is storing data from gyroscope and
+		 * accelerometer at different ODRs:
+		 *   - gyroscope ODR = 208Hz, accelerometer ODR = 104Hz
+		 * Since the gyroscope ODR is twice the accelerometer one, the
+		 * following pattern is repeated every 9 samples:
+		 *   - Gx, Gy, Gz, Ax, Ay, Az, Gx, Gy, Gz
+		 */
 		gyro_sip = gyro_sensor->sip;
 		acc_sip = acc_sensor->sip;
 		offset = 0;
