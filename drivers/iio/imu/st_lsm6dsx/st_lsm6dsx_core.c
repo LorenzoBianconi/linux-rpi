@@ -572,8 +572,8 @@ static int st_lsm6dsx_of_get_drdy_pin(struct st_lsm6dsx_hw *hw)
 		/* if the property has not been specified use default value */
 		hw->drdy_int_reg = ST_LSM6DSX_REG_INT1_ADDR;
 		err = 0;
-	} 
-	
+	}
+
 	return err;
 }
 #else

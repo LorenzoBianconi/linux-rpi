@@ -97,12 +97,12 @@ struct st_lsm6dsx_sensor {
  * struct st_lsm6dsx_hw - ST IMU MEMS hw instance
  * @dev: Pointer to instance of struct device (I2C or SPI).
  * @irq: Device interrupt line (I2C or SPI).
- * @drdy_int_reg: DRDY INT register address.
  * @lock: Mutex to protect read and write operations.
  * @fifo_lock: Mutex to prevent concurrent access to the hw FIFO.
  * @fifo_mode: FIFO operating mode supported by the device.
  * @enable_mask: Enabled sensor bitmask.
  * @sip: Total number of samples (acc/gyro) in a given pattern.
+ * @drdy_int_reg: Data ready interrupt register address.
  * @iio_devs: Pointers to acc/gyro iio_dev instances.
  * @settings: Pointer to the specific sensor settings in use.
  * @tf: Transfer function structure used by I/O operations.
@@ -110,9 +110,7 @@ struct st_lsm6dsx_sensor {
  */
 struct st_lsm6dsx_hw {
 	struct device *dev;
-
 	int irq;
-	u8 drdy_int_reg;
 
 	struct mutex lock;
 	struct mutex fifo_lock;
@@ -120,6 +118,8 @@ struct st_lsm6dsx_hw {
 	enum st_lsm6dsx_fifo_mode fifo_mode;
 	u8 enable_mask;
 	u8 sip;
+
+	u8 drdy_int_reg;
 
 	struct iio_dev *iio_devs[ST_LSM6DSX_ID_MAX];
 
@@ -142,4 +142,3 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor,
 				u16 watermark);
 
 #endif /* ST_LSM6DSX_H */
-
