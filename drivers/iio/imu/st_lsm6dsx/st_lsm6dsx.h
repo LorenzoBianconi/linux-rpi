@@ -102,7 +102,6 @@ struct st_lsm6dsx_sensor {
  * @fifo_mode: FIFO operating mode supported by the device.
  * @enable_mask: Enabled sensor bitmask.
  * @sip: Total number of samples (acc/gyro) in a given pattern.
- * @drdy_int_reg: Data ready interrupt register address.
  * @iio_devs: Pointers to acc/gyro iio_dev instances.
  * @settings: Pointer to the specific sensor settings in use.
  * @tf: Transfer function structure used by I/O operations.
@@ -118,8 +117,6 @@ struct st_lsm6dsx_hw {
 	enum st_lsm6dsx_fifo_mode fifo_mode;
 	u8 enable_mask;
 	u8 sip;
-
-	u8 drdy_int_reg;
 
 	struct iio_dev *iio_devs[ST_LSM6DSX_ID_MAX];
 
