@@ -535,7 +535,6 @@ static const struct iio_info st_lsm6dsx_gyro_info = {
 
 static const unsigned long st_lsm6dsx_available_scan_masks[] = {0x7, 0x0};
 
-#ifdef CONFIG_OF
 static int st_lsm6dsx_of_get_drdy_pin(struct st_lsm6dsx_hw *hw, int *drdy_pin)
 {
 	struct device_node *np = hw->dev->of_node;
@@ -553,12 +552,6 @@ static int st_lsm6dsx_of_get_drdy_pin(struct st_lsm6dsx_hw *hw, int *drdy_pin)
 
 	return err;
 }
-#else
-static int st_lsm6dsx_of_get_drdy_pin(struct st_lsm6dsx_hw *hw, int *drdy_pin)
-{
-	return -EINVAL;
-}
-#endif /* CONFIG_OF */
 
 static int st_lsm6dsx_get_drdy_reg(struct st_lsm6dsx_hw *hw, u8 *drdy_reg)
 {
