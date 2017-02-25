@@ -22,6 +22,7 @@ obj-y += humidity/
 obj-y += imu/
 obj-y += light/
 obj-y += magnetometer/
+obj-y += misc/
 obj-y += orientation/
 obj-y += potentiometer/
 obj-y += pressure/
