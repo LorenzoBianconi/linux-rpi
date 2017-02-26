@@ -26,9 +26,9 @@
 	.scan_index = scan_idx,						\
 	.scan_type = {							\
 		.sign = 's',						\
-		.realbits = 16,						\
-		.storagebits = 16,					\
-		.endianness = IIO_LE,					\
+		.realbits = 32,						\
+		.storagebits = 32,					\
+		.endianness = IIO_BE,					\
 	},								\
 }
 
@@ -56,15 +56,6 @@ static const struct iio_chan_spec st_stail_magn_channels[] = {
 static int st_stail_read_oneshot(struct st_stail_sensor *sensor,
 				 u8 addr, int *val)
 {
-	struct st_stail_hw *hw = sensor->hw;
-	struct st_stail_frm data;
-	int err;
-
-	err = sensor->hw->tf->read(hw->dev, addr, sizeof(struct st_stail_frm),
-				   (u8 *)&data);
-	if (err < 0)
-		return err;
-
 	*val = 0;
 
 	return IIO_VAL_INT;
@@ -97,7 +88,6 @@ static int st_stail_write_raw(struct iio_dev *iio_dev,
 			      struct iio_chan_spec const *chan,
 			      int val, int val2, long mask)
 {
-	struct st_stail_sensor *sensor = iio_priv(iio_dev);
 	int ret;
 
 	switch (mask) {
@@ -173,9 +163,6 @@ static struct iio_dev *st_stail_alloc_iiodev(struct st_stail_hw *hw,
 	sensor = iio_priv(iio_dev);
 	sensor->id = id;
 	sensor->hw = hw;
-	//sensor->odr = st_stail_odr_table[id].odr_avl[0].hz;
-	//sensor->gain = st_stail_fs_table[id].fs_avl[0].gain;
-	//sensor->watermark = 1;
 
 	switch (id) {
 	case ST_STAIL_ID_ACC:
@@ -203,25 +190,21 @@ static struct iio_dev *st_stail_alloc_iiodev(struct st_stail_hw *hw,
 	return iio_dev;
 }
 
-int st_stail_probe(struct device *dev, void *data,
-		   const struct st_stail_transfer_function *ops)
+int st_stail_probe(struct st_stail_hw *hw)
 {
-	struct st_stail_hw *hw;
 	int i, err;
-
-	hw = devm_kzalloc(dev, sizeof(*hw), GFP_KERNEL);
-	if (!hw)
-		return -ENOMEM;
-
-	dev_set_drvdata(dev, data);
-	hw->dev = dev;
-	hw->tf = ops;
 
 	for (i = 0; i < ST_STAIL_ID_MAX; i++) {
 		hw->iio_devs[i] = st_stail_alloc_iiodev(hw, i);
 		if (!hw->iio_devs[i])
 			return -ENOMEM;
+
+		err = st_stail_allocate_buffer(hw->iio_devs[i]);
+		if (err < 0)
+			return err;
 	}
+
+	st_stail_allocate_trigger(hw);
 
 	for (i = 0; i < ST_STAIL_ID_MAX; i++) {
 		err = devm_iio_device_register(hw->dev, hw->iio_devs[i]);
