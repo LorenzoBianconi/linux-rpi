@@ -13,24 +13,16 @@
 
 #include "st_stail.h"
 
-#define ST_STAIL_BUFF_SIZE	128
-struct st_stail_usb {
-	struct usb_device *udev;
-	struct urb *urb;
-
-	u8 buff[ST_STAIL_BUFF_SIZE];
-	u8 out_addr;
-	u8 in_addr;
-};
-
 static int st_stail_usb_read(struct device *dev, u8 addr, int len, u8 *data)
 {
 	struct st_stail_usb *udata = dev_get_drvdata(dev);
 	struct usb_device *udev = udata->udev;
-	int count;
+	int count, err;
 
-	return usb_bulk_msg(udev, usb_rcvbulkpipe(udev, udata->in_addr),
-			    data, len, &count, 10 * HZ);
+	err = usb_bulk_msg(udev, usb_rcvbulkpipe(udev, udata->in_addr),
+			   data, len, &count, 10 * HZ);
+
+	return err < 0 ? err : count;
 }
 
 static int st_stail_usb_write(struct device *dev, u8 addr, int len, u8 *data)
@@ -43,7 +35,20 @@ static int st_stail_usb_write(struct device *dev, u8 addr, int len, u8 *data)
 			    data, len, &count, 10 * HZ);
 }
 
+static int st_stail_usb_set_enable(struct device *dev, bool state)
+{
+	struct st_stail_usb *udata = dev_get_drvdata(dev);
+	int err = 0;
+
+	if (state)
+		err = usb_submit_urb(udata->urb, GFP_KERNEL);
+	udata->resched = state;
+
+	return err;
+}
+
 static const struct st_stail_transfer_function st_stail_usb_tf = {
+	.enable = st_stail_usb_set_enable,
 	.write = st_stail_usb_write,
 	.read = st_stail_usb_read,
 };
@@ -54,8 +59,19 @@ static const struct usb_device_id st_stail_usb_id_table[] = {
 };
 MODULE_DEVICE_TABLE(usb, st_stail_usb_id_table);
 
-static void st_stail_usb_irq(struct urb *urb)
+static void st_stail_usb_complete(struct urb *urb)
 {
+	struct st_stail_usb *udata = urb->context;
+
+	if (!urb->status) {
+		struct st_stail_hw *hw;
+
+		hw = container_of(udata, struct st_stail_hw, usb);
+		st_stail_trigger_handler(hw, udata->buff);
+	}
+	
+	if (udata->resched)
+		usb_submit_urb(urb, GFP_KERNEL);
 }
 
 static int st_stail_usb_probe(struct usb_interface *interface,
@@ -64,42 +80,52 @@ static int st_stail_usb_probe(struct usb_interface *interface,
 	struct usb_host_interface *cur_setting = interface->cur_altsetting;
 	struct usb_device *udev = interface_to_usbdev(interface);
 	struct usb_endpoint_descriptor *ep;
-	struct st_stail_usb *udata;
+	struct st_stail_hw *hw;
 	int i;
 
-	udata = devm_kzalloc(&interface->dev, sizeof(*udata), GFP_KERNEL);
-	if (!udata)
+	hw = devm_kzalloc(&interface->dev, sizeof(*hw), GFP_KERNEL);
+	if (!hw)
 		return -ENOMEM;
 
 	for (i = 0; i < cur_setting->desc.bNumEndpoints; i++) {
 		ep = &cur_setting->endpoint[i].desc;
 
-		if (!udata->in_addr && usb_endpoint_is_bulk_in(ep))
-			udata->in_addr = ep->bEndpointAddress;
-		else if (!udata->out_addr && usb_endpoint_is_bulk_out(ep))
-			udata->out_addr = ep->bEndpointAddress;
+		if (!hw->usb.in_addr && usb_endpoint_is_bulk_in(ep))
+			hw->usb.in_addr = ep->bEndpointAddress;
+		else if (!hw->usb.out_addr && usb_endpoint_is_bulk_out(ep))
+			hw->usb.out_addr = ep->bEndpointAddress;
 
-		if (udata->in_addr && udata->out_addr)
+		if (hw->usb.in_addr && hw->usb.out_addr)
 			break;
 	}
 
-	if (!udata->in_addr || !udata->out_addr)
+	if (!hw->usb.in_addr || !hw->usb.out_addr)
 		return -ENODEV;
 
-	/* allocate RX urb */
-	udata->urb = usb_alloc_urb(0, GFP_KERNEL);
-	if (!udata->urb)
+	usb_set_intfdata(interface, &hw->usb);
+	hw->tf = &st_stail_usb_tf;
+	hw->dev = &interface->dev;
+	hw->usb.udev = udev;
+
+	hw->usb.buff = usb_alloc_coherent(udev, ST_STAIL_BUFF_SIZE,
+					  GFP_KERNEL, &hw->usb.dma_buff);
+	if (!hw->usb.buff)
 		return -ENOMEM;
 
-	usb_fill_bulk_urb(udata->urb, udev,
-			  usb_rcvbulkpipe(udev, udata->in_addr),
-			  udata->buff, sizeof(udata->buff),
-			  st_stail_usb_irq, udata);
+	/* allocate RX urb */
+	hw->usb.urb = usb_alloc_urb(0, GFP_KERNEL);
+	if (!hw->usb.urb)
+		return -ENOMEM;
 
-	udata->udev = udev;
+	usb_fill_bulk_urb(hw->usb.urb, udev,
+			  usb_rcvbulkpipe(udev, hw->usb.in_addr),
+			  hw->usb.buff, ST_STAIL_BUFF_SIZE,
+			  st_stail_usb_complete, &hw->usb);
+	/* enable DMA transfer */
+	hw->usb.urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
+	hw->usb.urb->transfer_dma = hw->usb.dma_buff;
 
-	return st_stail_probe(&interface->dev, (void *)udata,
-			      &st_stail_usb_tf);
+	return st_stail_probe(hw);
 }
 
 static void st_stail_usb_disconnect(struct usb_interface *interface)
