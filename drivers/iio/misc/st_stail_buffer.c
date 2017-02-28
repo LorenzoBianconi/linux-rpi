@@ -102,7 +102,6 @@ static irqreturn_t st_stail_buffer_handler_thread(int irq, void *p)
 						   iio_get_time_ns());
 	}
 
-out:
 	iio_trigger_notify_done(hw->trig);
 
 	return IRQ_HANDLED;
