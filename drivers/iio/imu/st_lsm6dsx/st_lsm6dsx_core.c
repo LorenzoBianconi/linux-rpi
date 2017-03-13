@@ -683,6 +683,7 @@ int st_lsm6dsx_probe(struct device *dev, int irq, int hw_id,
 	hw->dev = dev;
 	hw->irq = irq;
 	hw->tf = tf_ops;
+	hw->watermark = 1;
 
 	err = st_lsm6dsx_check_whoami(hw, hw_id);
 	if (err < 0)
