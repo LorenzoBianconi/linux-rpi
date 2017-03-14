@@ -192,7 +192,7 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 	if (err < 0)
 		goto out;
 
-	fifo_len = ((data & ~ST_LSM6DSX_FIFO_TH_MASK) << 8) |
+	fifo_len = ((data << 8) & ~ST_LSM6DSX_FIFO_TH_MASK) |
 		   (fifo_len & ST_LSM6DSX_FIFO_TH_MASK);
 
 	wdata = cpu_to_le16(fifo_len);
