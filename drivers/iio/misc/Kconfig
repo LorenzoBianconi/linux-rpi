@@ -3,22 +3,22 @@
 #
 menu "Misc sensors"
 
-config IIO_ST_STAIL
-	tristate "STMicroelectronics Sensor Tail Driver"
+config IIO_ST_STILE
+	tristate "STMicroelectronics Sensor Tile Driver"
 	depends on USB
-	select IIO_ST_STAIL_USB if (USB)
+	select IIO_ST_STILE_USB if (USB)
 	select IIO_BUFFER
 	select IIO_TRIGGERED_BUFFER
 	help
-	  Say yes here to build support for STMicroelectronics Sensor Tail
+	  Say yes here to build support for STMicroelectronics Sensor Tile
 	  9-axis sensor
 
 	  To compile this driver as a module, choose M here: the module
-	  will be called st_stail.
+	  will be called st_stile.
 
-config IIO_ST_STAIL_USB
+config IIO_ST_STILE_USB
 	tristate
-	depends on IIO_ST_STAIL
+	depends on IIO_ST_STILE
 
 endmenu
 
