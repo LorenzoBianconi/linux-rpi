@@ -198,10 +198,8 @@ int st_lsm6dsx_update_watermark(struct st_lsm6dsx_sensor *sensor, u16 watermark)
 	wdata = cpu_to_le16(fifo_len);
 	err = hw->tf->write(hw->dev, ST_LSM6DSX_REG_FIFO_THL_ADDR,
 			    sizeof(wdata), (u8 *)&wdata);
-	if (err < 0)
-		goto out;
-
-	hw->watermark = fifo_watermark;
+	if (!err)
+		hw->watermark = fifo_watermark;
 
 out:
 	mutex_unlock(&hw->lock);
