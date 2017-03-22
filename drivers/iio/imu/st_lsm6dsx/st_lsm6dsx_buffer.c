@@ -451,4 +451,3 @@ int st_lsm6dsx_fifo_setup(struct st_lsm6dsx_hw *hw)
 
 	return 0;
 }
-

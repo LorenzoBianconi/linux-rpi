@@ -446,6 +446,7 @@ static int st_lsm6dsx_write_raw(struct iio_dev *iio_dev,
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ: {
 		u8 data;
+
 		err = st_lsm6dsx_get_odr_val(sensor, val, &data);
 		break;
 	}
