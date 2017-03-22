@@ -79,8 +79,8 @@ enum st_lsm6dsx_fifo_mode {
  * @sip: Number of samples in a given pattern.
  * @decimator: FIFO decimation factor.
  * @decimator_mask: Sensor mask for decimation register.
- * @delta_ts: Delta time between two consecutive samples.
- * @ts: Latest timestamp from the sensor.
+ * @delta_ts: Delta time between two consecutive interrupts.
+ * @ts: Latest timestamp from the interrupt handler.
  */
 struct st_lsm6dsx_sensor {
 	enum st_lsm6dsx_sensor_id id;
@@ -106,9 +106,7 @@ struct st_lsm6dsx_sensor {
  * @fifo_lock: Mutex to prevent concurrent access to the hw FIFO.
  * @fifo_mode: FIFO operating mode supported by the device.
  * @enable_mask: Enabled sensor bitmask.
- * @watermark: Hw watermark level.
  * @sip: Total number of samples (acc/gyro) in a given pattern.
- * @ts: Latest timestamp from the interrupt handler.
  * @iio_devs: Pointers to acc/gyro iio_dev instances.
  * @settings: Pointer to the specific sensor settings in use.
  * @tf: Transfer function structure used by I/O operations.
@@ -123,9 +121,7 @@ struct st_lsm6dsx_hw {
 
 	enum st_lsm6dsx_fifo_mode fifo_mode;
 	u8 enable_mask;
-	u16 watermark;
 	u8 sip;
-	s64 ts;
 
 	struct iio_dev *iio_devs[ST_LSM6DSX_ID_MAX];
 
