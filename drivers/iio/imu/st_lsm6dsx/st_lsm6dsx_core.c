@@ -308,8 +308,8 @@ static int st_lsm6dsx_set_full_scale(struct st_lsm6dsx_sensor *sensor,
 	return 0;
 }
 
-static int st_lsm6dsx_get_odr_val(struct st_lsm6dsx_sensor *sensor, u16 odr,
-				  u8 *val)
+static int st_lsm6dsx_check_odr(struct st_lsm6dsx_sensor *sensor, u16 odr,
+				u8 *val)
 {
 	int i;
 
@@ -332,7 +332,7 @@ static int st_lsm6dsx_set_odr(struct st_lsm6dsx_sensor *sensor, u16 odr)
 	int err;
 	u8 val;
 
-	err = st_lsm6dsx_get_odr_val(sensor, odr, &val);
+	err = st_lsm6dsx_check_odr(sensor, odr, &val);
 	if (err < 0)
 		return err;
 
@@ -447,7 +447,7 @@ static int st_lsm6dsx_write_raw(struct iio_dev *iio_dev,
 	case IIO_CHAN_INFO_SAMP_FREQ: {
 		u8 data;
 
-		err = st_lsm6dsx_get_odr_val(sensor, val, &data);
+		err = st_lsm6dsx_check_odr(sensor, val, &data);
 		break;
 	}
 	default:
