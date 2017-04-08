@@ -130,6 +130,7 @@
 		reg = <0>;
 		interrupt-parent = <&gpio>;
 		interrupts = <26 0x4>;
+		st,drdy-int-pin = <1>;
 	};
 
 	/*spidev0: spidev@0{
@@ -165,14 +166,14 @@
 		compatible = "st,hts221";
 		reg = <0x5f>;
 		interrupt-parent = <&gpio>;
-		interrupts = <26 0x4>;
+		interrupts = <19 0x4>;
 	};
-	lsm6ds3@6b {
+	/*lsm6ds3@6b {
 		compatible = "st,lsm6ds3";
 		reg = <0x6b>;
 		interrupt-parent = <&gpio>;
 		interrupts = <26 0x4>;
-	};
+	};*/
 };
 
 &i2c2 {
