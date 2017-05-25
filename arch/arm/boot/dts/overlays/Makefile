@@ -25,6 +25,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	enc28j60.dtbo \
 	enc28j60-spi2.dtbo \
 	fe-pi-audio.dtbo \
+	goodix.dtbo \
 	googlevoicehat-soundcard.dtbo \
 	gpio-ir.dtbo \
 	gpio-poweroff.dtbo \
@@ -57,6 +58,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	mcp3008.dtbo \
 	midi-uart0.dtbo \
 	mmc.dtbo \
+	mpu6050.dtbo \
 	mz61581.dtbo \
 	pi3-act-led.dtbo \
 	pi3-disable-bt.dtbo \
@@ -74,6 +76,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	pwm-2chan.dtbo \
 	qca7000.dtbo \
 	raspidac3.dtbo \
+	rotary-encoder.dtbo \
 	rpi-backlight.dtbo \
 	rpi-cirrus-wm5102.dtbo \
 	rpi-dac.dtbo \
