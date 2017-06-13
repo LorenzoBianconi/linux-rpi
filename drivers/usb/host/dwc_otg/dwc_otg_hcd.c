@@ -926,8 +926,6 @@ static void dwc_otg_hcd_free(dwc_otg_hcd_t * dwc_otg_hcd)
 	DWC_FREE(dwc_otg_hcd);
 }
 
-int init_hcd_usecs(dwc_otg_hcd_t *_hcd);
-
 int dwc_otg_hcd_init(dwc_otg_hcd_t * hcd, dwc_otg_core_if_t * core_if)
 {
 	struct device *dev = dwc_otg_hcd_to_dev(hcd);
@@ -1429,6 +1427,7 @@ static void assign_and_init_hc(dwc_otg_hcd_t * hcd, dwc_otg_qh_t * qh)
 
 /**
  * fiq_fsm_transaction_suitable() - Test a QH for compatibility with the FIQ
+ * @hcd:	Pointer to the dwc_otg_hcd struct
  * @qh:	pointer to the endpoint's queue head
  *
  * Transaction start/end control flow is grafted onto the existing dwc_otg
@@ -1438,7 +1437,7 @@ static void assign_and_init_hc(dwc_otg_hcd_t * hcd, dwc_otg_qh_t * qh)
  * Returns: 0 for unsuitable, 1 implies the FIQ can be enabled for this transaction.
  */
 
-int fiq_fsm_transaction_suitable(dwc_otg_qh_t *qh)
+int fiq_fsm_transaction_suitable(dwc_otg_hcd_t *hcd, dwc_otg_qh_t *qh)
 {
 	if (qh->do_split) {
 		switch (qh->ep_type) {
@@ -1457,28 +1456,22 @@ int fiq_fsm_transaction_suitable(dwc_otg_qh_t *qh)
 		}
 	} else if (qh->ep_type == UE_ISOCHRONOUS) {
 		if (fiq_fsm_mask & (1 << 2)) {
-			/* HS ISOCH support. We test for compatibility:
+			/* ISOCH support. We test for compatibility:
 			 * - DWORD aligned buffers
 			 * - Must be at least 2 transfers (otherwise pointless to use the FIQ)
 			 * If yes, then the fsm enqueue function will handle the state machine setup.
 			 */
 			dwc_otg_qtd_t *qtd = DWC_CIRCLEQ_FIRST(&qh->qtd_list);
 			dwc_otg_hcd_urb_t *urb = qtd->urb;
-			struct dwc_otg_hcd_iso_packet_desc (*iso_descs)[0] = &urb->iso_descs;
-			int nr_iso_frames = urb->packet_count;
+			dwc_dma_t ptr;
 			int i;
-			uint32_t ptr;
 
-			if (nr_iso_frames < 2)
+			if (urb->packet_count < 2)
 				return 0;
-			for (i = 0; i < nr_iso_frames; i++) {
-				ptr = urb->dma + iso_descs[i]->offset;
-				if (ptr & 0x3) {
-					printk_ratelimited("%s: Non-Dword aligned isochronous frame offset."
-							" Cannot queue FIQ-accelerated transfer to device %d endpoint %d\n",
-							__FUNCTION__, qh->channel->dev_addr, qh->channel->ep_num);
+			for (i = 0; i < urb->packet_count; i++) {
+				ptr = urb->dma + urb->iso_descs[i].offset;
+				if (ptr & 0x3)
 					return 0;
-				}
 			}
 			return 1;
 		}
@@ -2218,7 +2211,7 @@ static void process_periodic_channels(dwc_otg_hcd_t * hcd)
 			continue;
 		}
 
-		if (fiq_fsm_enable && fiq_fsm_transaction_suitable(qh)) {
+		if (fiq_fsm_enable && fiq_fsm_transaction_suitable(hcd, qh)) {
 			if (qh->do_split)
 				fiq_fsm_queue_split_transaction(hcd, qh);
 			else
@@ -2355,7 +2348,7 @@ static void process_non_periodic_channels(dwc_otg_hcd_t * hcd)
 		qh = DWC_LIST_ENTRY(hcd->non_periodic_qh_ptr, dwc_otg_qh_t,
 				    qh_list_entry);
 
-		if(fiq_fsm_enable && fiq_fsm_transaction_suitable(qh)) {
+		if(fiq_fsm_enable && fiq_fsm_transaction_suitable(hcd, qh)) {
 			fiq_fsm_queue_split_transaction(hcd, qh);
 		} else {
 			status = queue_transaction(hcd, qh->channel,
