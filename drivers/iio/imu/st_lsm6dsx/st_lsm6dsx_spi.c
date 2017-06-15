@@ -15,15 +15,9 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 
-#include <linux/platform_data/st_sensors_pdata.h>
-
 #include "st_lsm6dsx.h"
 
-#define ST_LSM6DSX_REG_SIM_ADDR		0x12
-#define ST_LSM6DSX_REG_SIM_MASK		BIT(3)
-#define ST_LSM6DSX_REG_IFINC_MASK	BIT(2)
-
-#define SENSORS_SPI_READ		BIT(7)
+#define SENSORS_SPI_READ	BIT(7)
 
 static int st_lsm6dsx_spi_read(struct device *dev, u8 addr, int len,
 			       u8 *data)
@@ -82,24 +76,6 @@ static const struct st_lsm6dsx_transfer_function st_lsm6dsx_transfer_fn = {
 static int st_lsm6dsx_spi_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
-	struct device_node *np = spi->dev.of_node;
-	struct st_sensors_platform_data *pdata;
-
-	/*
-	 * Enable spi-3wire if device requires 3-wire mode. Enable IF_INC
-	 * since it will be overwritten by spi configuration
-	 */
-	pdata = (struct st_sensors_platform_data *)spi->dev.platform_data;
-	if ((np && of_find_property(np, "spi-3wire", NULL)) ||
-	    (pdata && pdata->spi_3wire)) {
-		u8 data = ST_LSM6DSX_REG_SIM_MASK | ST_LSM6DSX_REG_IFINC_MASK;
-		int err;
-
-		err = st_lsm6dsx_spi_write(&spi->dev, ST_LSM6DSX_REG_SIM_ADDR,
-					   sizeof(data), &data);
-		if (err < 0)
-			return err;
-	}
 
 	return st_lsm6dsx_probe(&spi->dev, spi->irq,
 				(int)id->driver_data, id->name,
