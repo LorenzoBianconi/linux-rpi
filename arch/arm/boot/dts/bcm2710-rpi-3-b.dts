@@ -100,6 +100,34 @@
 		firmware = <&firmware>;
 		status = "okay";
 	};
+
+	/*spi_gpio {
+		status = "okay";
+
+		compatible = "spi-gpio";
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		gpio-sck = <&gpio 5 0>;
+		gpio-miso = <&gpio 13 0>;
+		gpio-mosi = <&gpio 6 0>;
+		cs-gpios = <&gpio 16 0>;
+		num-chipselects = <1>;
+
+		lsm6dsm@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+
+			compatible = "st,lsm6dsm";
+			reg = <0>;
+			interrupt-parent = <&gpio>;
+			interrupts = <20 0x4>;
+			spi-3wire;
+			spi-cpha;
+			spi-cpol;
+		};
+	};*/
 };
 
 &fb {
@@ -129,38 +157,40 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		spi-max-frequency = <500000>;
-	};*/
-
-	/*hts221@0{
-		compatible = "st,hts221";
-		reg = <0>;
+	};
+	spidev1: spidev@1{
+		compatible = "spidev";
+		reg = <1>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 		spi-max-frequency = <500000>;
-		spi-3wire;
-		interrupt-parent = <&gpio>;
-		interrupts = <26 0x1>;
 	};*/
 
 	lsm6ds3@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		spi-max-frequency = <500000>;
+		spi-max-frequency = <1000000>;
 
 		compatible = "st,lsm6ds3";
 		reg = <0>;
 		interrupt-parent = <&gpio>;
-		interrupts = <26 0x4>;
-		st,drdy-int-pin = <1>;
+		interrupts = <21 0x4>;
+		spi-cpha;
+		spi-cpol;
 	};
-
-	spidev1: spidev@1{
-		compatible = "spidev";
-		reg = <1>;	/* CE1 */
+	lsm6ds3h@1 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		spi-max-frequency = <500000>;
+		spi-max-frequency = <1000000>;
+
+		compatible = "st,lsm6ds3h";
+		reg = <1>;
+		interrupt-parent = <&gpio>;
+		interrupts = <26 0x4>;
+		spi-cpha;
+		spi-cpol;
 	};
+
 };
 
 &i2c0 {
@@ -180,12 +210,12 @@
 		interrupt-parent = <&gpio>;
 		interrupts = <19 0x4>;
 	};
-	/*lsm6ds3@6b {
-		compatible = "st,lsm6ds3";
+	lsm6dsm@6b {
+		compatible = "st,lsm6dsm";
 		reg = <0x6b>;
 		interrupt-parent = <&gpio>;
-		interrupts = <26 0x4>;
-	};*/
+		interrupts = <12 0x4>;
+	};
 };
 
 &i2c2 {
