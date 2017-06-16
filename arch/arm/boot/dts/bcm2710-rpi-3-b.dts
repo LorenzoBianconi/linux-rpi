@@ -101,7 +101,7 @@
 		status = "okay";
 	};
 
-	/*spi_gpio {
+	spi_gpio {
 		status = "okay";
 
 		compatible = "spi-gpio";
@@ -114,7 +114,7 @@
 		cs-gpios = <&gpio 16 0>;
 		num-chipselects = <1>;
 
-		lsm6dsm@0 {
+		/*lsm6dsm@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			spi-max-frequency = <1000000>;
@@ -126,8 +126,21 @@
 			spi-3wire;
 			spi-cpha;
 			spi-cpol;
+		};*/
+		lsm303agr_acc@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+
+			compatible = "st,lsm303agr-accel";
+			reg = <0>;
+			interrupt-parent = <&gpio>;
+			interrupts = <20 0x4>;
+			spi-3wire;
+			spi-cpha;
+			spi-cpol;
 		};
-	};*/
+	};
 };
 
 &fb {
