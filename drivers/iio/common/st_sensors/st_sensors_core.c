@@ -15,6 +15,7 @@
 #include <linux/iio/iio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <asm/unaligned.h>
 #include <linux/iio/common/st_sensors.h>
 
@@ -361,8 +362,6 @@ int st_sensors_init_interface_mode(struct iio_dev *indio_dev,
 	struct device_node *np = sdata->dev->of_node;
 	struct st_sensors_platform_data *pdata;
 
-	dev_err(sdata->dev, "%s-%d\n", __func__, __LINE__);
-
 	pdata = (struct st_sensors_platform_data *)sdata->dev->platform_data;
 	if ((np && of_find_property(np, "spi-3wire", NULL)) ||
 	    (pdata && pdata->spi_3wire)) {
@@ -683,6 +682,37 @@ ssize_t st_sensors_sysfs_scale_avail(struct device *dev,
 	return len;
 }
 EXPORT_SYMBOL(st_sensors_sysfs_scale_avail);
+
+#ifdef CONFIG_OF
+/**
+ * st_sensors_of_name_probe() - device tree probe for ST sensors
+ * @match: the OF match table for the device, containing compatible strings
+ *	but also a .data field with the corresponding internal kernel name
+ *	used by this sensor.
+ * @dev: sensor device data structure.
+ * @name: sensor name string.
+ * @len: sensor name string len.
+ *
+ * In effect this function matches a compatible string to an internal kernel
+ * name for a certain sensor device, so that the rest of the autodetection can
+ * rely on that name from this point on. I2C/SPI client devices will be renamed
+ * to match the internal kernel convention.
+ */
+void st_sensors_of_name_probe(const struct of_device_id *match,
+			      struct device *dev, char *name, int len)
+{
+	const struct of_device_id *of_id;
+
+	of_id = of_match_device(match, dev);
+	if (!of_id)
+		return;
+
+	/* The name from the OF match takes precedence if present */
+	strncpy(name, of_id->data, len);
+	name[len - 1] = '\0';
+}
+EXPORT_SYMBOL(st_sensors_of_name_probe);
+#endif
 
 MODULE_AUTHOR("Denis Ciocca <denis.ciocca@st.com>");
 MODULE_DESCRIPTION("STMicroelectronics ST-sensors core");

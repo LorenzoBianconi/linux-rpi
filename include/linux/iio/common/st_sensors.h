@@ -336,4 +336,15 @@ int st_sensors_init_interface_mode(struct iio_dev *indio_dev,
 				   const struct st_sensor_sim *sim_table,
 				   int sim_len);
 
+#ifdef CONFIG_OF
+void st_sensors_of_name_probe(const struct of_device_id *match,
+			      struct device *dev, char *name, int len);
+#else
+static inline void st_sensors_of_name_probe(const struct of_device_id *match,
+					    struct device *dev, char *name,
+					    int len)
+{
+}
+#endif /* CONFIG_OF */
+
 #endif /* ST_SENSORS_H */

@@ -739,7 +739,7 @@ static const struct st_sensor_settings st_accel_sensors_settings[] = {
 static const struct st_sensor_sim st_accel_sim_table[] = {
 	{
 		.ids = {
-			[0] = "lsm303agr-accel",
+			[0] = LSM303AGR_ACCEL_DEV_NAME,
 		},
 		.addr = 0x23,
 		.val = BIT(0),
