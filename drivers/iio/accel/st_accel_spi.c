@@ -18,16 +18,6 @@
 #include <linux/iio/common/st_sensors_spi.h>
 #include "st_accel.h"
 
-static const struct st_sensor_sim st_accel_sim_table[] = {
-	{
-		.ids = {
-			[0] = LSM303AGR_ACCEL_DEV_NAME,
-		},
-		.addr = 0x23,
-		.val = BIT(0),
-	},
-};
-
 static int st_accel_spi_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -40,11 +30,7 @@ static int st_accel_spi_probe(struct spi_device *spi)
 
 	adata = iio_priv(indio_dev);
 
-	err = st_sensors_spi_configure(indio_dev, spi, adata,
-				       st_accel_sim_table,
-				       ARRAY_SIZE(st_accel_sim_table));
-	if (err < 0)
-		return err;
+	st_sensors_spi_configure(indio_dev, spi, adata);
 
 	err = st_accel_common_probe(indio_dev);
 	if (err < 0)

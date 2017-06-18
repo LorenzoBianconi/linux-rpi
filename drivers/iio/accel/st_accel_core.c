@@ -736,6 +736,16 @@ static const struct st_sensor_settings st_accel_sensors_settings[] = {
 	},
 };
 
+static const struct st_sensor_sim st_accel_sim_table[] = {
+	{
+		.ids = {
+			[0] = "lsm303agr-accel",
+		},
+		.addr = 0x23,
+		.val = BIT(0),
+	},
+};
+
 static int st_accel_read_raw(struct iio_dev *indio_dev,
 			struct iio_chan_spec const *ch, int *val,
 							int *val2, long mask)
@@ -833,6 +843,11 @@ int st_accel_common_probe(struct iio_dev *indio_dev)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &accel_info;
 	mutex_init(&adata->tb.buf_lock);
+
+	err = st_sensors_init_interface_mode(indio_dev, st_accel_sim_table,
+					     ARRAY_SIZE(st_accel_sim_table));
+	if (err < 0)
+		return err;
 
 	err = st_sensors_power_enable(indio_dev);
 	if (err)

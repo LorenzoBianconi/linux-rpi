@@ -103,13 +103,9 @@ static const struct st_sensor_transfer_function st_sensors_tf_spi = {
 	.read_multiple_byte = st_sensors_spi_read_multiple_byte,
 };
 
-int st_sensors_spi_configure(struct iio_dev *indio_dev, struct spi_device *spi,
-			     struct st_sensor_data *sdata,
-			     const struct st_sensor_sim *sensor_sim_table,
-			     int sensor_sim_len)
+void st_sensors_spi_configure(struct iio_dev *indio_dev,
+			struct spi_device *spi, struct st_sensor_data *sdata)
 {
-	struct device_node *np = spi->dev.of_node;
-
 	spi_set_drvdata(spi, indio_dev);
 
 	indio_dev->dev.parent = &spi->dev;
@@ -118,24 +114,6 @@ int st_sensors_spi_configure(struct iio_dev *indio_dev, struct spi_device *spi,
 	sdata->dev = &spi->dev;
 	sdata->tf = &st_sensors_tf_spi;
 	sdata->get_irq_data_ready = st_sensors_spi_get_irq;
-
-	if (sensor_sim_len > 0 np && of_find_property(np, "spi-3wire", NULL)) {
-		const struct spi_device_id *id = spi_get_device_id(spi);
-		int err, i, j;
-
-		for (i = 0; i < sensor_sim_len; i++) {
-			for (j = 0; j < ST_SENSORS_MAX_SIM; j++) {
-				if (!strcmp(id->name, sensor_sim_table[i][j]))
-					break;
-			}
-		}
-		err = st_sensors_spi_write_byte(&sdata->tb, &spi->dev,
-					  addr, data);
-		if (err < 0)
-			return err;
-	}
-
-	return 0;
 }
 EXPORT_SYMBOL(st_sensors_spi_configure);
 

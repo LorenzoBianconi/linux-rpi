@@ -41,6 +41,7 @@
 
 #define ST_SENSORS_MAX_NAME			17
 #define ST_SENSORS_MAX_4WAI			7
+#define ST_SENSORS_MAX_SIM			8
 
 #define ST_SENSORS_LSM_CHANNELS(device_type, mask, index, mod, \
 					ch2, s, endian, rbits, sbits, addr) \
@@ -103,6 +104,12 @@ struct st_sensor_fullscale {
 	u8 addr;
 	u8 mask;
 	struct st_sensor_fullscale_avl fs_avl[ST_SENSORS_FULLSCALE_AVL_MAX];
+};
+
+struct st_sensor_sim {
+	char ids[ST_SENSORS_MAX_SIM][ST_SENSORS_MAX_NAME];
+	u8 addr;
+	u8 val;
 };
 
 /**
@@ -324,5 +331,9 @@ ssize_t st_sensors_sysfs_sampling_frequency_avail(struct device *dev,
 
 ssize_t st_sensors_sysfs_scale_avail(struct device *dev,
 				struct device_attribute *attr, char *buf);
+
+int st_sensors_init_interface_mode(struct iio_dev *indio_dev,
+				   const struct st_sensor_sim *sim_table,
+				   int sim_len);
 
 #endif /* ST_SENSORS_H */
