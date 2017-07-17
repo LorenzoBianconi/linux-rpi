@@ -99,7 +99,7 @@ static irqreturn_t st_stile_buffer_handler_thread(int irq, void *p)
 	if (offset >= 0) {
 		memcpy(buff, hw->data + offset, ST_STILE_SAMPLE_SIZE);
 		iio_push_to_buffers_with_timestamp(iio_dev, buff,
-						   iio_get_time_ns());
+						   iio_get_time_ns(iio_dev));
 	}
 
 	iio_trigger_notify_done(hw->trig);
