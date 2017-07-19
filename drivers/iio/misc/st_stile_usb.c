@@ -38,13 +38,13 @@ static int st_stile_usb_write(struct device *dev, u8 addr, int len, u8 *data)
 static int st_stile_usb_set_enable(struct device *dev, bool state)
 {
 	struct st_stile_usb *udata = dev_get_drvdata(dev);
-	int err = 0;
 
-	if (state)
-		err = usb_submit_urb(udata->urb, GFP_KERNEL);
-	udata->resched = state;
-
-	return err;
+	if (state) {
+		return usb_submit_urb(udata->urb, GFP_KERNEL);
+	} else {
+		usb_kill_urb(udata->urb);
+		return 0;
+	}
 }
 
 static const struct st_stile_transfer_function st_stile_usb_tf = {
@@ -61,17 +61,23 @@ MODULE_DEVICE_TABLE(usb, st_stile_usb_id_table);
 
 static void st_stile_usb_complete(struct urb *urb)
 {
-	struct st_stile_usb *udata = urb->context;
-
-	if (!urb->status) {
+	switch (urb->status) {
+	case -ECONNRESET:
+	case -ENOENT:
+	case -ESHUTDOWN:
+	case -EPERM:
+		break;
+	case 0:
+	default: {
+		struct st_stile_usb *udata = urb->context;
 		struct st_stile_hw *hw;
 
 		hw = container_of(udata, struct st_stile_hw, usb);
 		st_stile_trigger_handler(hw, udata->buff);
-	}
-	
-	if (udata->resched)
 		usb_submit_urb(urb, GFP_KERNEL);
+		break;
+	}
+	}
 }
 
 static int st_stile_usb_probe(struct usb_interface *interface,

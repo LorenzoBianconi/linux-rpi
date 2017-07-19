@@ -41,7 +41,6 @@ struct st_stile_sensor {
 struct st_stile_usb {
 	struct usb_device *udev;
 	struct urb *urb;
-	bool resched;
 
 	unsigned char *buff;
 	dma_addr_t dma_buff;
