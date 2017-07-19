@@ -27,9 +27,15 @@ enum st_stile_sensor_id {
 	ST_STILE_ID_MAX,
 };
 
+#define ST_STILE_SAMPLE_SIZE	12
+#define ST_STILE_BUFF_SIZE	128
+
 struct st_stile_sensor {
 	enum st_stile_sensor_id id;
+	struct iio_trigger *trig;
 	struct st_stile_hw *hw;
+
+	u8 data[ALIGN(ST_STILE_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
 };
 
 struct st_stile_usb {
@@ -44,13 +50,11 @@ struct st_stile_usb {
 	u8 in_addr;
 };
 
-#define ST_STILE_BUFF_SIZE	128
 struct st_stile_hw {
 	struct device *dev;
 
 	struct iio_dev *iio_devs[ST_STILE_ID_MAX];
-	struct iio_trigger *trig;
-	u8 data[ST_STILE_BUFF_SIZE];
+	u8 enable_mask;
 
 	const struct st_stile_transfer_function *tf;
 	struct st_stile_usb usb;
@@ -58,7 +62,7 @@ struct st_stile_hw {
 
 void st_stile_trigger_handler(struct st_stile_hw *hw, u8 *data);
 int st_stile_allocate_buffer(struct iio_dev *iio_dev);
-int st_stile_allocate_trigger(struct st_stile_hw *hw);
+int st_stile_allocate_trigger(struct iio_dev *iio_dev);
 int st_stile_probe(struct st_stile_hw *hw);
 
 #endif /* ST_STILE_H */

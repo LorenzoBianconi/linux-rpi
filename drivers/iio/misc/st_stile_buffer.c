@@ -20,33 +20,42 @@
 
 #include "st_stile.h"
 
-#define ST_STILE_SAMPLE_SIZE	12
-
 static const struct iio_trigger_ops st_stile_trigger_ops = {
 	.owner = THIS_MODULE,
 };
 
-int st_stile_allocate_trigger(struct st_stile_hw *hw)
+int st_stile_allocate_trigger(struct iio_dev *iio_dev)
 {
-	int i;
+	struct st_stile_sensor *sensor = iio_priv(iio_dev);
+	struct st_stile_hw *hw = sensor->hw;
 
-	hw->trig = devm_iio_trigger_alloc(hw->dev, "stile-trigger");
-	if (!hw->trig)
+	sensor->trig = devm_iio_trigger_alloc(hw->dev, "%s-trigger",
+					      iio_dev->name);
+	if (!sensor->trig)
 		return -ENOMEM;
 
-	iio_trigger_set_drvdata(hw->trig, hw);
-	hw->trig->ops = &st_stile_trigger_ops;
-	hw->trig->dev.parent = hw->dev;
-	for (i = 0; i < ST_STILE_ID_MAX; i++)
-		hw->iio_devs[i]->trig = iio_trigger_get(hw->trig);
+	iio_trigger_set_drvdata(sensor->trig, sensor);
+	sensor->trig->ops = &st_stile_trigger_ops;
+	sensor->trig->dev.parent = hw->dev;
+	iio_dev->trig = iio_trigger_get(sensor->trig);
 
-	return devm_iio_trigger_register(hw->dev, hw->trig);
+	return devm_iio_trigger_register(hw->dev, sensor->trig);
 }
 
 void st_stile_trigger_handler(struct st_stile_hw *hw, u8 *data)
 {
-	memcpy(&hw->data, data, sizeof(hw->data));
-	iio_trigger_poll(hw->trig);
+	int i;
+
+	for (i = 0; i < ST_STILE_ID_MAX; i++) {
+		struct st_stile_sensor *sensor = iio_priv(hw->iio_devs[i]);
+
+		if (!(hw->enable_mask & BIT(sensor->id)))
+			continue;
+
+		memcpy(sensor->data, data + 4 + i * ST_STILE_SAMPLE_SIZE,
+		       ST_STILE_SAMPLE_SIZE);
+		iio_trigger_poll(sensor->trig);
+	}
 }
 EXPORT_SYMBOL(st_stile_trigger_handler);
 
@@ -54,16 +63,19 @@ static int st_stile_buffer_preenable(struct iio_dev *iio_dev)
 {
 	struct st_stile_sensor *sensor = iio_priv(iio_dev);
 	struct st_stile_hw *hw = sensor->hw;
-	
-	return hw->tf->enable(hw->dev, true);
+	bool enabled = hw->enable_mask;
+
+	hw->enable_mask |= BIT(sensor->id);
+	return enabled ? 0 : hw->tf->enable(hw->dev, true);
 }
 
 static int st_stile_buffer_postdisable(struct iio_dev *iio_dev)
 {
 	struct st_stile_sensor *sensor = iio_priv(iio_dev);
 	struct st_stile_hw *hw = sensor->hw;
-	
-	return hw->tf->enable(hw->dev, false);
+
+	hw->enable_mask &= ~BIT(sensor->id);
+	return hw->enable_mask ? hw->tf->enable(hw->dev, false) : 0;
 }
 
 static const struct iio_buffer_setup_ops st_stile_buffer_ops = {
@@ -75,34 +87,14 @@ static const struct iio_buffer_setup_ops st_stile_buffer_ops = {
 
 static irqreturn_t st_stile_buffer_handler_thread(int irq, void *p)
 {
-	u8 buff[ALIGN(ST_STILE_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
 	struct iio_poll_func *pf = p;
 	struct iio_dev *iio_dev = pf->indio_dev;
 	struct st_stile_sensor *sensor = iio_priv(iio_dev);
-	struct st_stile_hw *hw = sensor->hw;
-	int offset = -1;
 
-	switch (sensor->id) {
-	case ST_STILE_ID_ACC:
-		offset = 8;
-		break;
-	case ST_STILE_ID_GYRO:
-		offset = 20;
-		break;
-	case ST_STILE_ID_MAG:
-		offset = 32;
-		break;
-	default:
-		break;
-	}
+	iio_push_to_buffers_with_timestamp(iio_dev, sensor->data,
+					   iio_get_time_ns(iio_dev));
 
-	if (offset >= 0) {
-		memcpy(buff, hw->data + offset, ST_STILE_SAMPLE_SIZE);
-		iio_push_to_buffers_with_timestamp(iio_dev, buff,
-						   iio_get_time_ns(iio_dev));
-	}
-
-	iio_trigger_notify_done(hw->trig);
+	iio_trigger_notify_done(sensor->trig);
 
 	return IRQ_HANDLED;
 }

@@ -202,11 +202,11 @@ int st_stile_probe(struct st_stile_hw *hw)
 		err = st_stile_allocate_buffer(hw->iio_devs[i]);
 		if (err < 0)
 			return err;
-	}
 
-	st_stile_allocate_trigger(hw);
+		err = st_stile_allocate_trigger(hw->iio_devs[i]);
+		if (err < 0)
+			return err;
 
-	for (i = 0; i < ST_STILE_ID_MAX; i++) {
 		err = devm_iio_device_register(hw->dev, hw->iio_devs[i]);
 		if (err)
 			return err;
