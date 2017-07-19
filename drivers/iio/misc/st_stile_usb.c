@@ -81,7 +81,7 @@ static int st_stile_usb_probe(struct usb_interface *interface,
 	struct usb_device *udev = interface_to_usbdev(interface);
 	struct usb_endpoint_descriptor *ep;
 	struct st_stile_hw *hw;
-	int i;
+	int i, err;
 
 	hw = devm_kzalloc(&interface->dev, sizeof(*hw), GFP_KERNEL);
 	if (!hw)
@@ -115,7 +115,7 @@ static int st_stile_usb_probe(struct usb_interface *interface,
 	/* allocate RX urb */
 	hw->usb.urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!hw->usb.urb)
-		return -ENOMEM;
+		goto free_dma_buff;
 
 	usb_fill_bulk_urb(hw->usb.urb, udev,
 			  usb_rcvbulkpipe(udev, hw->usb.in_addr),
@@ -125,7 +125,19 @@ static int st_stile_usb_probe(struct usb_interface *interface,
 	hw->usb.urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
 	hw->usb.urb->transfer_dma = hw->usb.dma_buff;
 
-	return st_stile_probe(hw);
+	err = st_stile_probe(hw);
+	if (err < 0)
+		goto free_urb;
+
+	return 0;
+
+free_urb:
+	usb_free_urb(hw->usb.urb);
+free_dma_buff:
+	usb_free_coherent(udev, ST_STILE_BUFF_SIZE, hw->usb.buff,
+			  hw->usb.dma_buff);
+
+	return err;
 }
 
 static void st_stile_usb_disconnect(struct usb_interface *interface)
@@ -134,6 +146,8 @@ static void st_stile_usb_disconnect(struct usb_interface *interface)
 
 	usb_kill_urb(udata->urb);
 	usb_free_urb(udata->urb);
+	usb_free_coherent(udata->udev, ST_STILE_BUFF_SIZE, udata->buff,
+			  udata->dma_buff);
 }
 
 static struct usb_driver st_stile_usb_driver = {
