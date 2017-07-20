@@ -39,6 +39,9 @@ static int st_stile_usb_set_enable(struct device *dev, bool state)
 {
 	struct st_stile_usb *udata = dev_get_drvdata(dev);
 
+	if (!udata)
+		return -EINVAL;
+
 	if (state) {
 		return usb_submit_urb(udata->urb, GFP_KERNEL);
 	} else {
@@ -87,7 +90,7 @@ static int st_stile_usb_probe(struct usb_interface *interface,
 	struct usb_device *udev = interface_to_usbdev(interface);
 	struct usb_endpoint_descriptor *ep;
 	struct st_stile_hw *hw;
-	int i, err;
+	int i, err = 0;
 
 	hw = devm_kzalloc(&interface->dev, sizeof(*hw), GFP_KERNEL);
 	if (!hw)
