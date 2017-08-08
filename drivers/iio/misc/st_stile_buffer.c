@@ -75,7 +75,7 @@ static int st_stile_buffer_postdisable(struct iio_dev *iio_dev)
 	struct st_stile_hw *hw = sensor->hw;
 
 	hw->enable_mask &= ~BIT(sensor->id);
-	return hw->enable_mask ? hw->tf->enable(hw->dev, false) : 0;
+	return !hw->enable_mask ? hw->tf->enable(hw->dev, false) : 0;
 }
 
 static const struct iio_buffer_setup_ops st_stile_buffer_ops = {
