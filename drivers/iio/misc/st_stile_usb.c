@@ -65,21 +65,21 @@ MODULE_DEVICE_TABLE(usb, st_stile_usb_id_table);
 static void st_stile_usb_complete(struct urb *urb)
 {
 	switch (urb->status) {
-	case -ECONNRESET:
-	case -ENOENT:
-	case -ESHUTDOWN:
-	case -EPERM:
-		break;
-	case 0:
-	default: {
+	case 0: {
 		struct st_stile_usb *udata = urb->context;
 		struct st_stile_hw *hw;
 
 		hw = container_of(udata, struct st_stile_hw, usb);
 		st_stile_trigger_handler(hw, udata->buff);
-		usb_submit_urb(urb, GFP_KERNEL);
+	default:
+		usb_submit_urb(urb, GFP_ATOMIC);
 		break;
 	}
+	case -ECONNRESET:
+	case -ENOENT:
+	case -ESHUTDOWN:
+	case -EPERM:
+		break;
 	}
 }
 
