@@ -41,7 +41,6 @@
 
 #define ST_SENSORS_MAX_NAME			17
 #define ST_SENSORS_MAX_4WAI			7
-#define ST_SENSORS_MAX_SIM			8
 
 #define ST_SENSORS_LSM_CHANNELS(device_type, mask, index, mod, \
 					ch2, s, endian, rbits, sbits, addr) \
@@ -107,9 +106,8 @@ struct st_sensor_fullscale {
 };
 
 struct st_sensor_sim {
-	char ids[ST_SENSORS_MAX_SIM][ST_SENSORS_MAX_NAME];
 	u8 addr;
-	u8 val;
+	u8 value;
 };
 
 /**
@@ -204,6 +202,7 @@ struct st_sensor_transfer_function {
  * @bdu: Block data update register.
  * @das: Data Alignment Selection register.
  * @drdy_irq: Data ready register of the sensor.
+ * @sim: SPI serial interface mode register of the sensor.
  * @multi_read_bit: Use or not particular bit for [I2C/SPI] multi-read.
  * @bootime: samples to discard when sensor passing from power-down to power-up.
  */
@@ -220,6 +219,7 @@ struct st_sensor_settings {
 	struct st_sensor_bdu bdu;
 	struct st_sensor_das das;
 	struct st_sensor_data_ready_irq drdy_irq;
+	struct st_sensor_sim sim;
 	bool multi_read_bit;
 	unsigned int bootime;
 };
@@ -332,17 +332,14 @@ ssize_t st_sensors_sysfs_sampling_frequency_avail(struct device *dev,
 ssize_t st_sensors_sysfs_scale_avail(struct device *dev,
 				struct device_attribute *attr, char *buf);
 
-int st_sensors_init_interface_mode(struct iio_dev *indio_dev,
-				   const struct st_sensor_sim *sim_table,
-				   int sim_len);
-
 #ifdef CONFIG_OF
-void st_sensors_of_name_probe(const struct of_device_id *match,
-			      struct device *dev, char *name, int len);
+void st_sensors_of_name_probe(struct device *dev,
+			      const struct of_device_id *match,
+			      char *name, int len);
 #else
-static inline void st_sensors_of_name_probe(const struct of_device_id *match,
-					    struct device *dev, char *name,
-					    int len)
+static inline void st_sensors_of_name_probe(struct device *dev,
+					    const struct of_device_id *match,
+					    char *name, int len)
 {
 }
 #endif /* CONFIG_OF */

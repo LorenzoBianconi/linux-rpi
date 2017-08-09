@@ -55,7 +55,7 @@ static int st_press_i2c_probe(struct i2c_client *client,
 		return -ENOMEM;
 
 	press_data = iio_priv(indio_dev);
-	st_sensors_of_name_probe(st_press_of_match, &client->dev,
+	st_sensors_of_name_probe(&client->dev, st_press_of_match,
 				 client->name, sizeof(client->name));
 
 	st_sensors_i2c_configure(indio_dev, client, press_data);

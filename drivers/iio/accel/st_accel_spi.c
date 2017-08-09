@@ -47,9 +47,9 @@ static int st_accel_spi_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	adata = iio_priv(indio_dev);
-	st_sensors_of_name_probe(st_accel_of_match, &spi->dev,
-				 spi->modalias, sizeof(spi->modalias));
 
+	st_sensors_of_name_probe(&spi->dev, st_accel_of_match,
+				 spi->modalias, sizeof(spi->modalias));
 	st_sensors_spi_configure(indio_dev, spi, adata);
 
 	err = st_accel_common_probe(indio_dev);

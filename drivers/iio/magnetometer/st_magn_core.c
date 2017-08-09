@@ -441,7 +441,7 @@ static const struct st_sensor_settings st_magn_sensors_settings[] = {
 				},
 			},
 		},
-		.multi_read_bit = ST_MAGN_2_MULTIREAD_BIT,
+		.multi_read_bit = true,
 		.bootime = 2,
 	},
 	{

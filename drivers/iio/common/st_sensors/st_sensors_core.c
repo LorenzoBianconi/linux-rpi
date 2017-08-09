@@ -346,6 +346,36 @@ static struct st_sensors_platform_data *st_sensors_of_probe(struct device *dev,
 
 	return pdata;
 }
+
+/**
+ * st_sensors_of_name_probe() - device tree probe for ST sensor name
+ * @dev: driver model representation of the device.
+ * @match: the OF match table for the device, containing compatible strings
+ *	but also a .data field with the corresponding internal kernel name
+ *	used by this sensor.
+ * @name: device name buffer reference.
+ * @len: device name buffer length.
+ *
+ * In effect this function matches a compatible string to an internal kernel
+ * name for a certain sensor device, so that the rest of the autodetection can
+ * rely on that name from this point on. I2C/SPI devices will be renamed
+ * to match the internal kernel convention.
+ */
+void st_sensors_of_name_probe(struct device *dev,
+			      const struct of_device_id *match,
+			      char *name, int len)
+{
+	const struct of_device_id *of_id;
+
+	of_id = of_match_device(match, dev);
+	if (!of_id || !of_id->data)
+		return;
+
+	/* The name from the OF match takes precedence if present */
+	strncpy(name, of_id->data, len);
+	name[len - 1] = '\0';
+}
+EXPORT_SYMBOL(st_sensors_of_name_probe);
 #else
 static struct st_sensors_platform_data *st_sensors_of_probe(struct device *dev,
 		struct st_sensors_platform_data *defdata)
@@ -353,44 +383,6 @@ static struct st_sensors_platform_data *st_sensors_of_probe(struct device *dev,
 	return NULL;
 }
 #endif
-
-int st_sensors_init_interface_mode(struct iio_dev *indio_dev,
-				   const struct st_sensor_sim *sim_table,
-				   int sim_len)
-{
-	struct st_sensor_data *sdata = iio_priv(indio_dev);
-	struct device_node *np = sdata->dev->of_node;
-	struct st_sensors_platform_data *pdata;
-
-	pdata = (struct st_sensors_platform_data *)sdata->dev->platform_data;
-	if ((np && of_find_property(np, "spi-3wire", NULL)) ||
-	    (pdata && pdata->spi_3wire)) {
-		int i, j;
-
-		for (i = 0; i < sim_len; i++) {
-			for (j = 0; j < ST_SENSORS_MAX_SIM; j++) {
-				if (!strcmp(sim_table[i].ids[j],
-					    indio_dev->name))
-					break;
-			}
-			if (j < ST_SENSORS_MAX_SIM)
-				break;
-		}
-
-		if (i < sim_len) {
-			int err;
-
-			err = sdata->tf->write_byte(&sdata->tb, sdata->dev,
-						    sim_table[i].addr,
-						    sim_table[i].val);
-			if (err < 0)
-				return err;
-		}
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(st_sensors_init_interface_mode);
 
 int st_sensors_init_sensor(struct iio_dev *indio_dev,
 					struct st_sensors_platform_data *pdata)
@@ -589,6 +581,31 @@ out:
 }
 EXPORT_SYMBOL(st_sensors_read_info_raw);
 
+static int st_sensors_init_interface_mode(struct iio_dev *indio_dev,
+			const struct st_sensor_settings *sensor_settings)
+{
+	struct st_sensor_data *sdata = iio_priv(indio_dev);
+	struct device_node *np = sdata->dev->of_node;
+	struct st_sensors_platform_data *pdata;
+
+	pdata = (struct st_sensors_platform_data *)sdata->dev->platform_data;
+	if (((np && of_property_read_bool(np, "spi-3wire")) ||
+	     (pdata && pdata->spi_3wire)) && sensor_settings->sim.addr) {
+		int err;
+
+		err = sdata->tf->write_byte(&sdata->tb, sdata->dev,
+					    sensor_settings->sim.addr,
+					    sensor_settings->sim.value);
+		if (err < 0) {
+			dev_err(&indio_dev->dev,
+				"failed to init interface mode\n");
+			return err;
+		}
+	}
+
+	return 0;
+}
+
 int st_sensors_check_device_support(struct iio_dev *indio_dev,
 			int num_sensors_list,
 			const struct st_sensor_settings *sensor_settings)
@@ -612,6 +629,10 @@ int st_sensors_check_device_support(struct iio_dev *indio_dev,
 							indio_dev->name);
 		return -ENODEV;
 	}
+
+	err = st_sensors_init_interface_mode(indio_dev, &sensor_settings[i]);
+	if (err < 0)
+		return err;
 
 	if (sensor_settings[i].wai_addr) {
 		err = sdata->tf->read_byte(&sdata->tb, sdata->dev,
@@ -682,37 +703,6 @@ ssize_t st_sensors_sysfs_scale_avail(struct device *dev,
 	return len;
 }
 EXPORT_SYMBOL(st_sensors_sysfs_scale_avail);
-
-#ifdef CONFIG_OF
-/**
- * st_sensors_of_name_probe() - device tree probe for ST sensors
- * @match: the OF match table for the device, containing compatible strings
- *	but also a .data field with the corresponding internal kernel name
- *	used by this sensor.
- * @dev: sensor device data structure.
- * @name: sensor name string.
- * @len: sensor name string len.
- *
- * In effect this function matches a compatible string to an internal kernel
- * name for a certain sensor device, so that the rest of the autodetection can
- * rely on that name from this point on. I2C/SPI client devices will be renamed
- * to match the internal kernel convention.
- */
-void st_sensors_of_name_probe(const struct of_device_id *match,
-			      struct device *dev, char *name, int len)
-{
-	const struct of_device_id *of_id;
-
-	of_id = of_match_device(match, dev);
-	if (!of_id)
-		return;
-
-	/* The name from the OF match takes precedence if present */
-	strncpy(name, of_id->data, len);
-	name[len - 1] = '\0';
-}
-EXPORT_SYMBOL(st_sensors_of_name_probe);
-#endif
 
 MODULE_AUTHOR("Denis Ciocca <denis.ciocca@st.com>");
 MODULE_DESCRIPTION("STMicroelectronics ST-sensors core");
