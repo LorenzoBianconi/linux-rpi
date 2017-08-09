@@ -674,6 +674,8 @@ Params: abx80x                  Select one of the ABx80x family:
 
         ds3231                  Select the DS3231 device
 
+        m41t62                  Select the M41T62 device
+
         mcp7940x                Select the MCP7940x device
 
         mcp7941x                Select the MCP7941x device
@@ -999,6 +1001,17 @@ Params: speed                   Display SPI bus speed
         debug                   Debug output level {0-7}
 
         xohms                   Touchpanel sensitivity (X-plate resistance)
+
+
+Name:   papirus
+Info:   PaPiRus ePaper Screen by Pi Supply (both HAT and pHAT)
+Load:   dtoverlay=papirus,<param>=<val>
+Params: panel                   Display panel (required):
+                                1.44": e1144cs021
+                                2.0":  e2200cs021
+                                2.7":  e2271cs021
+
+        speed                   Display SPI bus speed
 
 
 [ The pcf2127-rtc overlay has been deleted. See i2c-rtc. ]
