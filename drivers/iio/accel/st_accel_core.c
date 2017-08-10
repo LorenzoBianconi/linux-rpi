@@ -355,9 +355,14 @@ static const struct st_sensor_settings st_accel_sensors_settings[] = {
 			.mask = 0x01,
 		},
 		.drdy_irq = {
-			.addr = ST_ACCEL_1_DRDY_IRQ_ADDR,
-			.mask_int1 = ST_ACCEL_1_DRDY_IRQ_INT1_MASK,
-			.mask_int2 = ST_ACCEL_1_DRDY_IRQ_INT2_MASK,
+			.int1 = {
+				.addr = 0x22,
+				.mask = 0x10,
+			},
+			.int2 = {
+				.addr = 0x22,
+				.mask = 0x08,
+			},
 			.addr_ihl = ST_ACCEL_1_IHL_IRQ_ADDR,
 			.mask_ihl = ST_ACCEL_1_IHL_IRQ_MASK,
 			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,
@@ -425,9 +430,14 @@ static const struct st_sensor_settings st_accel_sensors_settings[] = {
 			.mask = ST_ACCEL_2_BDU_MASK,
 		},
 		.drdy_irq = {
-			.addr = ST_ACCEL_2_DRDY_IRQ_ADDR,
-			.mask_int1 = ST_ACCEL_2_DRDY_IRQ_INT1_MASK,
-			.mask_int2 = ST_ACCEL_2_DRDY_IRQ_INT2_MASK,
+			.int1 = {
+				.addr = 0x22,
+				.mask = 0x02,
+			},
+			.int2 = {
+				.addr = 0x22,
+				.mask = 0x10,
+			},
 			.addr_ihl = ST_ACCEL_2_IHL_IRQ_ADDR,
 			.mask_ihl = ST_ACCEL_2_IHL_IRQ_MASK,
 			.addr_od = ST_ACCEL_2_OD_IRQ_ADDR,
@@ -509,9 +519,14 @@ static const struct st_sensor_settings st_accel_sensors_settings[] = {
 			.mask = ST_ACCEL_3_BDU_MASK,
 		},
 		.drdy_irq = {
-			.addr = ST_ACCEL_3_DRDY_IRQ_ADDR,
-			.mask_int1 = ST_ACCEL_3_DRDY_IRQ_INT1_MASK,
-			.mask_int2 = ST_ACCEL_3_DRDY_IRQ_INT2_MASK,
+			.int1 = {
+				.addr = 0x23,
+				.mask = 0x80,
+			},
+			.int2 = {
+				.addr = 0x23,
+				.mask = 0x00,
+			},
 			.addr_ihl = ST_ACCEL_3_IHL_IRQ_ADDR,
 			.mask_ihl = ST_ACCEL_3_IHL_IRQ_MASK,
 			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,
@@ -575,8 +590,10 @@ static const struct st_sensor_settings st_accel_sensors_settings[] = {
 			.mask = ST_ACCEL_4_BDU_MASK,
 		},
 		.drdy_irq = {
-			.addr = ST_ACCEL_4_DRDY_IRQ_ADDR,
-			.mask_int1 = ST_ACCEL_4_DRDY_IRQ_INT1_MASK,
+			.int1 = {
+				.addr = 0x21,
+				.mask = 0x04,
+			},
 			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,
 		},
 		.sim = {
@@ -628,9 +645,14 @@ static const struct st_sensor_settings st_accel_sensors_settings[] = {
 			},
 		},
 		.drdy_irq = {
-			.addr = ST_ACCEL_5_DRDY_IRQ_ADDR,
-			.mask_int1 = ST_ACCEL_5_DRDY_IRQ_INT1_MASK,
-			.mask_int2 = ST_ACCEL_5_DRDY_IRQ_INT2_MASK,
+			.int1 = {
+				.addr = 0x22,
+				.mask = 0x04,
+			},
+			.int2 = {
+				.addr = 0x22,
+				.mask = 0x20,
+			},
 			.addr_ihl = ST_ACCEL_5_IHL_IRQ_ADDR,
 			.mask_ihl = ST_ACCEL_5_IHL_IRQ_MASK,
 			.addr_od = ST_ACCEL_5_OD_IRQ_ADDR,
@@ -697,9 +719,14 @@ static const struct st_sensor_settings st_accel_sensors_settings[] = {
 			.mask = ST_ACCEL_6_BDU_MASK,
 		},
 		.drdy_irq = {
-			.addr = ST_ACCEL_6_DRDY_IRQ_ADDR,
-			.mask_int1 = ST_ACCEL_6_DRDY_IRQ_INT1_MASK,
-			.mask_int2 = ST_ACCEL_6_DRDY_IRQ_INT2_MASK,
+			.int1 = {
+				.addr = 0x22,
+				.mask = 0x02,
+			},
+			.int2 = {
+				.addr = 0x22,
+				.mask = 0x10,
+			},
 			.addr_ihl = ST_ACCEL_6_IHL_IRQ_ADDR,
 			.mask_ihl = ST_ACCEL_6_IHL_IRQ_MASK,
 		},
@@ -751,8 +778,10 @@ static const struct st_sensor_settings st_accel_sensors_settings[] = {
 		.bdu = {
 		},
 		.drdy_irq = {
-			.addr = ST_ACCEL_7_DRDY_IRQ_ADDR,
-			.mask_int1 = ST_ACCEL_7_DRDY_IRQ_INT1_MASK,
+			.int1 = {
+				.addr = 0x21,
+				.mask = 0x04,
+			},
 			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,
 		},
 		.sim = {

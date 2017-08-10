@@ -183,8 +183,10 @@ static const struct st_sensor_settings st_gyro_sensors_settings[] = {
 			.mask = ST_GYRO_1_BDU_MASK,
 		},
 		.drdy_irq = {
-			.addr = ST_GYRO_1_DRDY_IRQ_ADDR,
-			.mask_int2 = ST_GYRO_1_DRDY_IRQ_INT2_MASK,
+			.int2 = {
+				.addr = 0x22,
+				.mask = 0x08,
+			},
 			/*
 			 * The sensor has IHL (active low) and open
 			 * drain settings, but only for INT1 and not
@@ -253,8 +255,10 @@ static const struct st_sensor_settings st_gyro_sensors_settings[] = {
 			.mask = ST_GYRO_2_BDU_MASK,
 		},
 		.drdy_irq = {
-			.addr = ST_GYRO_2_DRDY_IRQ_ADDR,
-			.mask_int2 = ST_GYRO_2_DRDY_IRQ_INT2_MASK,
+			.int2 = {
+				.addr = 0x22,
+				.mask = 0x08,
+			},
 			/*
 			 * The sensor has IHL (active low) and open
 			 * drain settings, but only for INT1 and not
@@ -318,8 +322,10 @@ static const struct st_sensor_settings st_gyro_sensors_settings[] = {
 			.mask = ST_GYRO_3_BDU_MASK,
 		},
 		.drdy_irq = {
-			.addr = ST_GYRO_3_DRDY_IRQ_ADDR,
-			.mask_int2 = ST_GYRO_3_DRDY_IRQ_INT2_MASK,
+			.int2 = {
+				.addr = 0x22,
+				.mask = 0x08,
+			},
 			/*
 			 * The sensor has IHL (active low) and open
 			 * drain settings, but only for INT1 and not

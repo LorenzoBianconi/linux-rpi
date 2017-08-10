@@ -480,8 +480,10 @@ static const struct st_sensor_settings st_magn_sensors_settings[] = {
 			.mask = ST_MAGN_3_BDU_MASK,
 		},
 		.drdy_irq = {
-			.addr = ST_MAGN_3_DRDY_IRQ_ADDR,
-			.mask_int1 = ST_MAGN_3_DRDY_INT_MASK,
+			.int1 = {
+				.addr = 0x62,
+				.mask = 0x01,
+			},
 			.addr_ihl = ST_MAGN_3_IHL_IRQ_ADDR,
 			.mask_ihl = ST_MAGN_3_IHL_IRQ_MASK,
 			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,

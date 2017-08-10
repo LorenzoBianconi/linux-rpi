@@ -364,9 +364,14 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 			.mask = ST_PRESS_LPS331AP_BDU_MASK,
 		},
 		.drdy_irq = {
-			.addr = ST_PRESS_LPS331AP_DRDY_IRQ_ADDR,
-			.mask_int1 = ST_PRESS_LPS331AP_DRDY_IRQ_INT1_MASK,
-			.mask_int2 = ST_PRESS_LPS331AP_DRDY_IRQ_INT2_MASK,
+			.int1 = {
+				.addr = 0x22,
+				.mask = 0x04,
+			},
+			.int2 = {
+				.addr = 0x22,
+				.mask = 0x20,
+			},
 			.addr_ihl = ST_PRESS_LPS331AP_IHL_IRQ_ADDR,
 			.mask_ihl = ST_PRESS_LPS331AP_IHL_IRQ_MASK,
 			.addr_od = ST_PRESS_LPS331AP_OD_IRQ_ADDR,
@@ -417,7 +422,12 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 			.mask = ST_PRESS_LPS001WP_BDU_MASK,
 		},
 		.drdy_irq = {
-			.addr = 0,
+			.int1 = {
+				.addr = 0,
+			},
+			.int2 = {
+				.addr = 0,
+			},
 		},
 		.multi_read_bit = ST_PRESS_LPS001WP_MULTIREAD_BIT,
 		.bootime = 2,
@@ -464,9 +474,14 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 			.mask = ST_PRESS_LPS25H_BDU_MASK,
 		},
 		.drdy_irq = {
-			.addr = ST_PRESS_LPS25H_DRDY_IRQ_ADDR,
-			.mask_int1 = ST_PRESS_LPS25H_DRDY_IRQ_INT1_MASK,
-			.mask_int2 = ST_PRESS_LPS25H_DRDY_IRQ_INT2_MASK,
+			.int1 = {
+				.addr = 0x23,
+				.mask = 0x01,
+			},
+			.int2 = {
+				.addr = 0x23,
+				.mask = 0x10,
+			},
 			.addr_ihl = ST_PRESS_LPS25H_IHL_IRQ_ADDR,
 			.mask_ihl = ST_PRESS_LPS25H_IHL_IRQ_MASK,
 			.addr_od = ST_PRESS_LPS25H_OD_IRQ_ADDR,
@@ -518,9 +533,14 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 			.mask = ST_PRESS_LPS22HB_BDU_MASK,
 		},
 		.drdy_irq = {
-			.addr = ST_PRESS_LPS22HB_DRDY_IRQ_ADDR,
-			.mask_int1 = ST_PRESS_LPS22HB_DRDY_IRQ_INT1_MASK,
-			.mask_int2 = ST_PRESS_LPS22HB_DRDY_IRQ_INT2_MASK,
+			.int1 = {
+				.addr = 0x12,
+				.mask = 0x04,
+			},
+			.int2 = {
+				.addr = 0x12,
+				.mask = 0x08,
+			},
 			.addr_ihl = ST_PRESS_LPS22HB_IHL_IRQ_ADDR,
 			.mask_ihl = ST_PRESS_LPS22HB_IHL_IRQ_MASK,
 			.addr_od = ST_PRESS_LPS22HB_OD_IRQ_ADDR,
@@ -674,7 +694,8 @@ int st_press_common_probe(struct iio_dev *indio_dev)
 
 	/* Some devices don't support a data ready pin. */
 	if (!press_data->dev->platform_data &&
-				press_data->sensor_settings->drdy_irq.addr)
+	    (press_data->sensor_settings->drdy_irq.int1.addr ||
+	     press_data->sensor_settings->drdy_irq.int2.addr))
 		press_data->dev->platform_data =
 			(struct st_sensors_platform_data *)&default_press_pdata;
 
