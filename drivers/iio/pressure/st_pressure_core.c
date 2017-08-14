@@ -423,10 +423,10 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 		},
 		.drdy_irq = {
 			.int1 = {
-				.addr = 0,
+				.addr = 0x00,
 			},
 			.int2 = {
-				.addr = 0,
+				.addr = 0x00,
 			},
 		},
 		.multi_read_bit = ST_PRESS_LPS001WP_MULTIREAD_BIT,
@@ -477,10 +477,6 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 			.int1 = {
 				.addr = 0x23,
 				.mask = 0x01,
-			},
-			.int2 = {
-				.addr = 0x23,
-				.mask = 0x10,
 			},
 			.addr_ihl = ST_PRESS_LPS25H_IHL_IRQ_ADDR,
 			.mask_ihl = ST_PRESS_LPS25H_IHL_IRQ_MASK,
@@ -536,10 +532,6 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 			.int1 = {
 				.addr = 0x12,
 				.mask = 0x04,
-			},
-			.int2 = {
-				.addr = 0x12,
-				.mask = 0x08,
 			},
 			.addr_ihl = ST_PRESS_LPS22HB_IHL_IRQ_ADDR,
 			.mask_ihl = ST_PRESS_LPS22HB_IHL_IRQ_MASK,

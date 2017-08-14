@@ -30,6 +30,7 @@
 #define LSM303AGR_ACCEL_DEV_NAME	"lsm303agr_accel"
 #define LIS2DH12_ACCEL_DEV_NAME		"lis2dh12_accel"
 #define LIS3L02DQ_ACCEL_DEV_NAME	"lis3l02dq"
+#define LIS2DW12_ACCEL_DEV_NAME		"lis2dw12"
 
 /**
 * struct st_sensors_platform_data - default accel platform data

@@ -53,10 +53,14 @@ static int st_sensors_new_samples_available(struct iio_dev *indio_dev,
 	 * gyroscopes or magnetometers. No sensor use more than 3
 	 * channels, so cut the other status bits here.
 	 */
-	status &= 0x07;
+	if (sdata->sensor_settings->enable_axis.addr) {
+		status &= 0x07;
 
-	if (status & (u8)indio_dev->active_scan_mask[0])
+		if (status & (u8)indio_dev->active_scan_mask[0])
+			return 1;
+	} else if (status & 0x01) {
 		return 1;
+	}
 
 	return 0;
 }
