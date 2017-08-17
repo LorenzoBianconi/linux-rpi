@@ -376,7 +376,14 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 			.mask_ihl = ST_PRESS_LPS331AP_IHL_IRQ_MASK,
 			.addr_od = ST_PRESS_LPS331AP_OD_IRQ_ADDR,
 			.mask_od = ST_PRESS_LPS331AP_OD_IRQ_MASK,
-			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,
+			.stat_drdy = {
+				.addr = ST_SENSORS_DEFAULT_STAT_ADDR,
+				.mask = 0x03,
+			},
+		},
+		.sim = {
+			.addr = 0x20,
+			.value = BIT(0),
 		},
 		.multi_read_bit = ST_PRESS_LPS331AP_MULTIREAD_BIT,
 		.bootime = 2,
@@ -428,6 +435,10 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 			.int2 = {
 				.addr = 0x00,
 			},
+		},
+		.sim = {
+			.addr = 0x20,
+			.value = BIT(0),
 		},
 		.multi_read_bit = ST_PRESS_LPS001WP_MULTIREAD_BIT,
 		.bootime = 2,
@@ -482,7 +493,14 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 			.mask_ihl = ST_PRESS_LPS25H_IHL_IRQ_MASK,
 			.addr_od = ST_PRESS_LPS25H_OD_IRQ_ADDR,
 			.mask_od = ST_PRESS_LPS25H_OD_IRQ_MASK,
-			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,
+			.stat_drdy = {
+				.addr = ST_SENSORS_DEFAULT_STAT_ADDR,
+				.mask = 0x03,
+			},
+		},
+		.sim = {
+			.addr = 0x20,
+			.value = BIT(0),
 		},
 		.multi_read_bit = ST_PRESS_LPS25H_MULTIREAD_BIT,
 		.bootime = 2,
@@ -537,7 +555,14 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 			.mask_ihl = ST_PRESS_LPS22HB_IHL_IRQ_MASK,
 			.addr_od = ST_PRESS_LPS22HB_OD_IRQ_ADDR,
 			.mask_od = ST_PRESS_LPS22HB_OD_IRQ_MASK,
-			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,
+			.stat_drdy = {
+				.addr = ST_SENSORS_DEFAULT_STAT_ADDR,
+				.mask = 0x03,
+			},
+		},
+		.sim = {
+			.addr = 0x10,
+			.value = BIT(0),
 		},
 		.multi_read_bit = ST_PRESS_LPS22HB_MULTIREAD_BIT,
 	},

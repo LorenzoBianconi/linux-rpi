@@ -441,6 +441,10 @@ static const struct st_sensor_settings st_magn_sensors_settings[] = {
 				},
 			},
 		},
+		.sim = {
+			.addr = 0x22,
+			.value = BIT(2),
+		},
 		.multi_read_bit = true,
 		.bootime = 2,
 	},
@@ -449,6 +453,7 @@ static const struct st_sensor_settings st_magn_sensors_settings[] = {
 		.wai_addr = ST_MAGN_3_WAI_ADDR,
 		.sensors_supported = {
 			[0] = LSM303AGR_MAGN_DEV_NAME,
+			[1] = LIS2MDL_MAGN_DEV_NAME,
 		},
 		.ch = (struct iio_chan_spec *)st_magn_3_16bit_channels,
 		.odr = {
@@ -484,9 +489,10 @@ static const struct st_sensor_settings st_magn_sensors_settings[] = {
 				.addr = 0x62,
 				.mask = 0x01,
 			},
-			.addr_ihl = ST_MAGN_3_IHL_IRQ_ADDR,
-			.mask_ihl = ST_MAGN_3_IHL_IRQ_MASK,
-			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,
+			.stat_drdy = {
+				.addr = 0x67,
+				.mask = 0x07,
+			},
 		},
 		.multi_read_bit = ST_MAGN_3_MULTIREAD_BIT,
 		.bootime = 2,

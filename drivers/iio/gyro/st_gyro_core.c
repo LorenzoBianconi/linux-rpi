@@ -35,6 +35,7 @@
 #define ST_GYRO_DEFAULT_OUT_Z_L_ADDR		0x2c
 
 /* FULLSCALE */
+#define ST_GYRO_FS_AVL_245DPS			245
 #define ST_GYRO_FS_AVL_250DPS			250
 #define ST_GYRO_FS_AVL_500DPS			500
 #define ST_GYRO_FS_AVL_2000DPS			2000
@@ -192,7 +193,14 @@ static const struct st_sensor_settings st_gyro_sensors_settings[] = {
 			 * drain settings, but only for INT1 and not
 			 * for the DRDY line on INT2.
 			 */
-			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,
+			.stat_drdy = {
+				.addr = ST_SENSORS_DEFAULT_STAT_ADDR,
+				.mask = 0x07,
+			},
+		},
+		.sim = {
+			.addr = 0x23,
+			.value = BIT(0),
 		},
 		.multi_read_bit = ST_GYRO_1_MULTIREAD_BIT,
 		.bootime = 2,
@@ -264,31 +272,38 @@ static const struct st_sensor_settings st_gyro_sensors_settings[] = {
 			 * drain settings, but only for INT1 and not
 			 * for the DRDY line on INT2.
 			 */
-			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,
+			.stat_drdy = {
+				.addr = ST_SENSORS_DEFAULT_STAT_ADDR,
+				.mask = 0x07,
+			},
+		},
+		.sim = {
+			.addr = 0x23,
+			.value = BIT(0),
 		},
 		.multi_read_bit = ST_GYRO_2_MULTIREAD_BIT,
 		.bootime = 2,
 	},
 	{
-		.wai = ST_GYRO_3_WAI_EXP,
+		.wai = 0xd7,
 		.wai_addr = ST_SENSORS_DEFAULT_WAI_ADDRESS,
 		.sensors_supported = {
-			[0] = L3GD20_GYRO_DEV_NAME,
+			[0] = L3GD20H_GYRO_DEV_NAME,
 		},
 		.ch = (struct iio_chan_spec *)st_gyro_16bit_channels,
 		.odr = {
-			.addr = ST_GYRO_3_ODR_ADDR,
-			.mask = ST_GYRO_3_ODR_MASK,
+			.addr = 0x20,
+			.mask = 0xc0,
 			.odr_avl = {
-				{ 95, ST_GYRO_3_ODR_AVL_95HZ_VAL, },
-				{ 190, ST_GYRO_3_ODR_AVL_190HZ_VAL, },
-				{ 380, ST_GYRO_3_ODR_AVL_380HZ_VAL, },
-				{ 760, ST_GYRO_3_ODR_AVL_760HZ_VAL, },
+				{ .hz = 100, .value = 0x00, },
+				{ .hz = 200, .value = 0x01, },
+				{ .hz = 400, .value = 0x02, },
+				{ .hz = 800, .value = 0x03, },
 			},
 		},
 		.pw = {
-			.addr = ST_GYRO_3_PW_ADDR,
-			.mask = ST_GYRO_3_PW_MASK,
+			.addr = 0x20,
+			.mask = 0x08,
 			.value_on = ST_SENSORS_DEFAULT_POWER_ON_VALUE,
 			.value_off = ST_SENSORS_DEFAULT_POWER_OFF_VALUE,
 		},
@@ -297,29 +312,29 @@ static const struct st_sensor_settings st_gyro_sensors_settings[] = {
 			.mask = ST_SENSORS_DEFAULT_AXIS_MASK,
 		},
 		.fs = {
-			.addr = ST_GYRO_3_FS_ADDR,
-			.mask = ST_GYRO_3_FS_MASK,
+			.addr = 0x23,
+			.mask = 0x30,
 			.fs_avl = {
 				[0] = {
-					.num = ST_GYRO_FS_AVL_250DPS,
-					.value = ST_GYRO_3_FS_AVL_250_VAL,
-					.gain = ST_GYRO_3_FS_AVL_250_GAIN,
+					.num = ST_GYRO_FS_AVL_245DPS,
+					.value = 0x00,
+					.gain = IIO_DEGREE_TO_RAD(8750),
 				},
 				[1] = {
 					.num = ST_GYRO_FS_AVL_500DPS,
-					.value = ST_GYRO_3_FS_AVL_500_VAL,
-					.gain = ST_GYRO_3_FS_AVL_500_GAIN,
+					.value = 0x01,
+					.gain = IIO_DEGREE_TO_RAD(17500),
 				},
 				[2] = {
 					.num = ST_GYRO_FS_AVL_2000DPS,
-					.value = ST_GYRO_3_FS_AVL_2000_VAL,
-					.gain = ST_GYRO_3_FS_AVL_2000_GAIN,
+					.value = 0x02,
+					.gain = IIO_DEGREE_TO_RAD(70000),
 				},
 			},
 		},
 		.bdu = {
-			.addr = ST_GYRO_3_BDU_ADDR,
-			.mask = ST_GYRO_3_BDU_MASK,
+			.addr = 0x23,
+			.mask = 0x80,
 		},
 		.drdy_irq = {
 			.int2 = {
@@ -331,9 +346,16 @@ static const struct st_sensor_settings st_gyro_sensors_settings[] = {
 			 * drain settings, but only for INT1 and not
 			 * for the DRDY line on INT2.
 			 */
-			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,
+			.stat_drdy = {
+				.addr = ST_SENSORS_DEFAULT_STAT_ADDR,
+				.mask = 0x07,
+			},
 		},
-		.multi_read_bit = ST_GYRO_3_MULTIREAD_BIT,
+		.sim = {
+			.addr = 0x23,
+			.value = BIT(0),
+		},
+		.multi_read_bit = true,
 		.bootime = 2,
 	},
 };
