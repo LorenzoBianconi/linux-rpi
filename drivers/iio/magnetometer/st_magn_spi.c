@@ -50,22 +50,17 @@ static int st_magn_spi_probe(struct spi_device *spi)
 	struct st_sensor_data *mdata;
 	int err;
 
-printk("%s-%d\n", __func__, __LINE__);
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*mdata));
 	if (!indio_dev)
 		return -ENOMEM;
 
-printk("%s-%d\n", __func__, __LINE__);
 	mdata = iio_priv(indio_dev);
 
 	st_sensors_of_name_probe(&spi->dev, st_magn_of_match,
 				 spi->modalias, sizeof(spi->modalias));
-printk("%s-%d\n", __func__, __LINE__);
 	st_sensors_spi_configure(indio_dev, spi, mdata);
 
-printk("%s-%d\n", __func__, __LINE__);
 	err = st_magn_common_probe(indio_dev);
-printk("%s-%d: err=%d\n", __func__, __LINE__, err);
 	if (err < 0)
 		return err;
 
