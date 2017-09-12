@@ -18,6 +18,8 @@
 #define LPS25H_PRESS_DEV_NAME		"lps25h"
 #define LPS331AP_PRESS_DEV_NAME		"lps331ap"
 #define LPS22HB_PRESS_DEV_NAME		"lps22hb"
+#define LPS33HW_PRESS_DEV_NAME		"lps33hw"
+#define LPS35HW_PRESS_DEV_NAME		"lps35hw"
 
 /**
  * struct st_sensors_platform_data - default press platform data

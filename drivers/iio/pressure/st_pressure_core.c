@@ -510,6 +510,8 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 		.wai_addr = ST_SENSORS_DEFAULT_WAI_ADDRESS,
 		.sensors_supported = {
 			[0] = LPS22HB_PRESS_DEV_NAME,
+			[1] = LPS33HW_PRESS_DEV_NAME,
+			[2] = LPS35HW_PRESS_DEV_NAME,
 		},
 		.ch = (struct iio_chan_spec *)st_press_lps22hb_channels,
 		.num_ch = ARRAY_SIZE(st_press_lps22hb_channels),
@@ -564,7 +566,7 @@ static const struct st_sensor_settings st_press_sensors_settings[] = {
 			.addr = 0x10,
 			.value = BIT(0),
 		},
-		.multi_read_bit = ST_PRESS_LPS22HB_MULTIREAD_BIT,
+		.multi_read_bit = false,
 	},
 };
 

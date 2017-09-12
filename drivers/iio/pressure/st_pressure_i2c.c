@@ -36,6 +36,14 @@ static const struct of_device_id st_press_of_match[] = {
 		.compatible = "st,lps22hb-press",
 		.data = LPS22HB_PRESS_DEV_NAME,
 	},
+	{
+		.compatible = "st,lps33hw",
+		.data = LPS33HW_PRESS_DEV_NAME,
+	},
+	{
+		.compatible = "st,lps35hw",
+		.data = LPS35HW_PRESS_DEV_NAME,
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, st_press_of_match);
@@ -78,6 +86,9 @@ static const struct i2c_device_id st_press_id_table[] = {
 	{ LPS001WP_PRESS_DEV_NAME },
 	{ LPS25H_PRESS_DEV_NAME },
 	{ LPS331AP_PRESS_DEV_NAME },
+	{ LPS22HB_PRESS_DEV_NAME },
+	{ LPS33HW_PRESS_DEV_NAME },
+	{ LPS35HW_PRESS_DEV_NAME },
 	{},
 };
 MODULE_DEVICE_TABLE(i2c, st_press_id_table);

@@ -1,0 +1,11 @@
+--- drivers/iio/pressure/st_pressure.h
++++ drivers/iio/pressure/st_pressure.h
+@@ -19,6 +19,8 @@
+ 	LPS25H,
+ 	LPS331AP,
+ 	LPS22HB,
++	LPS33HW,
++	LPS35HW,
+ 	ST_PRESS_MAX,
+ };
+ 
