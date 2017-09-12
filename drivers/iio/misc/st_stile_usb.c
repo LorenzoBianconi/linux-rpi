@@ -13,25 +13,33 @@
 
 #include "st_stile.h"
 
-static int st_stile_usb_read(struct device *dev, u8 addr, int len, u8 *data)
+static int st_stile_usb_read(struct device *dev, u8 *data, int len)
 {
-	struct st_stile_usb *udata = dev_get_drvdata(dev);
-	struct usb_device *udev = udata->udev;
+	struct st_stile_usb *udata;
 	int count, err;
 
-	err = usb_bulk_msg(udev, usb_rcvbulkpipe(udev, udata->in_addr),
+	udata = dev_get_drvdata(dev);
+	if (!udata)
+		return -EINVAL;
+
+	err = usb_bulk_msg(udata->udev,
+			   usb_rcvbulkpipe(udata->udev, udata->in_addr),
 			   data, len, &count, 10 * HZ);
 
 	return err < 0 ? err : count;
 }
 
-static int st_stile_usb_write(struct device *dev, u8 addr, int len, u8 *data)
+static int st_stile_usb_write(struct device *dev, u8 *data, int len)
 {
-	struct st_stile_usb *udata = dev_get_drvdata(dev);
-	struct usb_device *udev = udata->udev;
+	struct st_stile_usb *udata;
 	int count;
 
-	return usb_bulk_msg(udev, usb_sndbulkpipe(udev, udata->out_addr),
+	udata = dev_get_drvdata(dev);
+	if (!udata)
+		return -EINVAL;
+
+	return usb_bulk_msg(udata->udev,
+			    usb_sndbulkpipe(udata->udev, udata->out_addr),
 			    data, len, &count, 10 * HZ);
 }
 

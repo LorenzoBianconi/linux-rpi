@@ -52,18 +52,39 @@ void st_stile_trigger_handler(struct st_stile_hw *hw, u8 *data)
 		if (!(hw->enable_mask & BIT(sensor->id)))
 			continue;
 
-		memcpy(sensor->data, data + 4 + i * ST_STILE_SAMPLE_SIZE,
+		memcpy(sensor->data, data + i * ST_STILE_SAMPLE_SIZE,
 		       ST_STILE_SAMPLE_SIZE);
 		iio_trigger_poll(sensor->trig);
 	}
 }
 EXPORT_SYMBOL(st_stile_trigger_handler);
 
+static int st_stile_set_enable(struct st_stile_sensor *sensor, bool enable)
+{
+	struct {
+		u8 cmd;
+		u8 index;
+		u8 value;
+	} cmd = {
+		.cmd = ST_STILE_CMD_ENABLE,
+		.index = sensor->id,
+		.value = enable,
+	};
+	struct st_stile_hw *hw = sensor->hw;
+
+	return hw->tf->write(hw->dev, (u8 *)&cmd, sizeof(cmd));
+}
+
 static int st_stile_buffer_preenable(struct iio_dev *iio_dev)
 {
 	struct st_stile_sensor *sensor = iio_priv(iio_dev);
 	struct st_stile_hw *hw = sensor->hw;
 	bool enabled = hw->enable_mask;
+	int err;
+
+	err = st_stile_set_enable(sensor, true);
+	if (err < 0)
+		return err;
 
 	hw->enable_mask |= BIT(sensor->id);
 	return enabled ? 0 : hw->tf->enable(hw->dev, true);
@@ -73,6 +94,11 @@ static int st_stile_buffer_postdisable(struct iio_dev *iio_dev)
 {
 	struct st_stile_sensor *sensor = iio_priv(iio_dev);
 	struct st_stile_hw *hw = sensor->hw;
+	int err;
+
+	err = st_stile_set_enable(sensor, false);
+	if (err < 0)
+		return err;
 
 	hw->enable_mask &= ~BIT(sensor->id);
 	return !hw->enable_mask ? hw->tf->enable(hw->dev, false) : 0;

@@ -14,10 +14,15 @@
 #include <linux/device.h>
 #include <linux/module.h>
 
+enum {
+	ST_STILE_CMD_ENABLE = 1,
+	ST_STILE_CMD_SET_ODR = 2,
+};
+
 struct st_stile_transfer_function {
 	int (*enable)(struct device *dev, bool state);
-	int (*write)(struct device *dev, u8 addr, int len, u8 *data);
-	int (*read)(struct device *dev, u8 addr, int len, u8 *data);
+	int (*write)(struct device *dev, u8 *data, int len);
+	int (*read)(struct device *dev, u8 *data, int len);
 };
 
 enum st_stile_sensor_id {
@@ -34,6 +39,7 @@ struct st_stile_sensor {
 	enum st_stile_sensor_id id;
 	struct iio_trigger *trig;
 	struct st_stile_hw *hw;
+	u16 odr;
 
 	u8 data[ALIGN(ST_STILE_SAMPLE_SIZE, sizeof(s64)) + sizeof(s64)];
 };

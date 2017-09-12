@@ -14,6 +14,8 @@
 
 #include "st_stile.h"
 
+static const u16 st_stile_odr_avl[] = { 13, 26, 104, 208, 416, 833 };
+
 #define ST_STILE_CHANNEL(chan_type, addr, mod, scan_idx)		\
 {									\
 	.type = chan_type,						\
@@ -61,6 +63,35 @@ static int st_stile_read_oneshot(struct st_stile_sensor *sensor,
 	return IIO_VAL_INT;
 }
 
+static int st_stile_set_odr(struct st_stile_sensor *sensor, u16 odr)
+{
+	int err, i, len = ARRAY_SIZE(st_stile_odr_avl) - 1;
+	struct st_stile_hw *hw = sensor->hw;
+	struct {
+		u8 cmd;
+		u8 index;
+		u8 value;
+	} cmd;
+
+	for (i = 0; i < ARRAY_SIZE(st_stile_odr_avl); i++) {
+		if (st_stile_odr_avl[i] >= odr)
+			break;
+	}
+	i = min_t(int, i, ARRAY_SIZE(st_stile_odr_avl) - 1);
+
+	cmd.cmd = ST_STILE_CMD_SET_ODR;
+	cmd.index = sensor->id;
+	cmd.value = st_stile_odr_avl[len] / st_stile_odr_avl[i];
+
+	err = hw->tf->write(hw->dev, (u8 *)&cmd, sizeof(cmd));
+	if (err < 0)
+		return err;
+
+	sensor->odr = st_stile_odr_avl[i];
+
+	return 0;
+}
+
 static int st_stile_read_raw(struct iio_dev *iio_dev,
 			     struct iio_chan_spec const *ch,
 			     int *val, int *val2, long mask)
@@ -75,6 +106,10 @@ static int st_stile_read_raw(struct iio_dev *iio_dev,
 			break;
 		ret = st_stile_read_oneshot(sensor, ch->address, val);
 		iio_device_release_direct_mode(iio_dev);
+		break;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*val = sensor->odr;
+		ret = IIO_VAL_INT;
 		break;
 	default:
 		ret = -EINVAL;
@@ -91,6 +126,12 @@ static int st_stile_write_raw(struct iio_dev *iio_dev,
 	int ret;
 
 	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ: {
+		struct st_stile_sensor *sensor = iio_priv(iio_dev);
+
+		ret = st_stile_set_odr(sensor, val);
+		break;
+	}
 	default:
 		ret = -EINVAL;
 		break;
@@ -99,7 +140,26 @@ static int st_stile_write_raw(struct iio_dev *iio_dev,
 	return ret;
 }
 
+static ssize_t st_stile_sysfs_sampling_freq(struct device *dev,
+					    struct device_attribute *attr,
+					    char *buf)
+{
+	ssize_t len = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(st_stile_odr_avl); i++) {
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%d ",
+				 st_stile_odr_avl[i]);
+	}
+	buf[len - 1] = '\n';
+
+	return len;
+}
+
+static IIO_DEV_ATTR_SAMP_FREQ_AVAIL(st_stile_sysfs_sampling_freq);
+
 static struct attribute *st_stile_acc_attributes[] = {
+	&iio_dev_attr_sampling_frequency_available.dev_attr.attr,
 	NULL,
 };
 
@@ -115,6 +175,7 @@ static const struct iio_info st_stile_acc_info = {
 };
 
 static struct attribute *st_stile_gyro_attributes[] = {
+	&iio_dev_attr_sampling_frequency_available.dev_attr.attr,
 	NULL,
 };
 
@@ -130,6 +191,7 @@ static const struct iio_info st_stile_gyro_info = {
 };
 
 static struct attribute *st_stile_magn_attributes[] = {
+	&iio_dev_attr_sampling_frequency_available.dev_attr.attr,
 	NULL,
 };
 
@@ -144,7 +206,7 @@ static const struct iio_info st_stile_magn_info = {
 	.write_raw = st_stile_write_raw,
 };
 
-static const unsigned long st_stile_available_scan_masks[] = {0x7, 0x0};
+static const unsigned long st_stile_available_scan_masks[] = { 0x7, 0x0 };
 
 static struct iio_dev *st_stile_alloc_iiodev(struct st_stile_hw *hw,
 					     enum st_stile_sensor_id id)
@@ -163,6 +225,7 @@ static struct iio_dev *st_stile_alloc_iiodev(struct st_stile_hw *hw,
 	sensor = iio_priv(iio_dev);
 	sensor->id = id;
 	sensor->hw = hw;
+	sensor->odr = st_stile_odr_avl[0];
 
 	switch (id) {
 	case ST_STILE_ID_ACC:
