@@ -441,6 +441,12 @@ static const struct st_sensor_settings st_magn_sensors_settings[] = {
 				},
 			},
 		},
+		.drdy_irq = {
+			.stat_drdy = {
+				.addr = ST_SENSORS_DEFAULT_STAT_ADDR,
+				.mask = 0x07,
+			},
+		},
 		.sim = {
 			.addr = 0x22,
 			.value = BIT(2),

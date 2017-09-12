@@ -468,8 +468,11 @@ int st_sensors_set_dataready_irq(struct iio_dev *indio_dev, bool enable)
 	struct st_sensor_data *sdata = iio_priv(indio_dev);
 
 	if (!sdata->sensor_settings->drdy_irq.int1.addr &&
-	    !sdata->sensor_settings->drdy_irq.int2.addr)
+	    !sdata->sensor_settings->drdy_irq.int2.addr) {
+		if (sdata->sensor_settings->drdy_irq.stat_drdy.addr)
+			sdata->hw_irq_trigger = enable;
 		return 0;
+	}
 
 	/* Enable/Disable the interrupt generator 1. */
 	if (sdata->sensor_settings->drdy_irq.ig1.en_addr > 0) {
@@ -478,7 +481,7 @@ int st_sensors_set_dataready_irq(struct iio_dev *indio_dev, bool enable)
 				sdata->sensor_settings->drdy_irq.ig1.en_mask,
 				(int)enable);
 		if (err < 0)
-			goto st_accel_set_dataready_irq_error;
+			return err;
 	}
 
 	if (sdata->drdy_int_pin == 1) {
@@ -495,8 +498,6 @@ int st_sensors_set_dataready_irq(struct iio_dev *indio_dev, bool enable)
 	/* Enable/Disable the interrupt generator for data ready. */
 	err = st_sensors_write_data_with_mask(indio_dev, drdy_addr,
 					      drdy_mask, (int)enable);
-
-st_accel_set_dataready_irq_error:
 	return err;
 }
 EXPORT_SYMBOL(st_sensors_set_dataready_irq);
