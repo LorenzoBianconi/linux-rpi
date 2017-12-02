@@ -33,6 +33,9 @@ needed.
 Configuring additional, optional hardware is done using Device Tree overlays
 (see below).
 
+GPIO numbering uses the hardware pin numbering scheme (aka BCM scheme) and
+not the physical pin numbers.
+
 raspi-config
 ============
 
@@ -496,7 +499,8 @@ Params: gpio_pin                Input pin number. Default is 18.
 
 
 Name:   gpio-poweroff
-Info:   Drives a GPIO high or low on poweroff (including halt)
+Info:   Drives a GPIO high or low on poweroff (including halt). Enabling this
+        overlay will prevent the ability to boot by driving GPIO3 low.
 Load:   dtoverlay=gpio-poweroff,<param>=<val>
 Params: gpiopin                 GPIO for signalling (default 26)
 
@@ -741,8 +745,8 @@ Name:   i2c-sensor
 Info:   Adds support for a number of I2C barometric pressure and temperature
         sensors on i2c_arm
 Load:   dtoverlay=i2c-sensor,<param>=<val>
-Params: addr                    Set the address for the BME280, BMP280, TMP102
-                                or LM75
+Params: addr                    Set the address for the BME280, BMP280, TMP102,
+                                HDC100X, LM75 or SHT3x
 
         bme280                  Select the Bosch Sensortronic BME280
                                 Valid addresses 0x76-0x77, default 0x76
@@ -766,6 +770,19 @@ Params: addr                    Set the address for the BME280, BMP280, TMP102
 
         tmp102                  Select the Texas Instruments TMP102 temp sensor
                                 Valid addresses 0x48-0x4b, default 0x48
+
+        hdc100x                 Select the Texas Instruments HDC100x temp sensor
+                                Valid addresses 0x40-0x43, default 0x40
+
+        tsl4531                 Select the AMS TSL4531 digital ambient light
+                                sensor
+
+        veml6070                Select the Vishay VEML6070 ultraviolet light
+                                sensor
+
+        sht3x                   Select the Sensiron SHT3x temperature and
+                                humidity sensor. Valid addresses 0x44-0x45,
+                                default 0x44
 
 
 Name:   i2c0-bcm2708

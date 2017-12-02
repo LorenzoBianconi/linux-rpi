@@ -5637,7 +5637,10 @@ int __init cgroup_init_early(void)
 	return 0;
 }
 
-static u16 cgroup_disable_mask __initdata = 1<<0;
+static u16 cgroup_disable_mask __initdata;
+static u16 cgroup_enable_mask __initdata;
+static bool cgroup_enable_memory;
+static int __init cgroup_disable(char *str);
 
 /**
  * cgroup_init - cgroup initialization
@@ -5675,6 +5678,13 @@ int __init cgroup_init(void)
 	BUG_ON(cgroup_setup_root(&cgrp_dfl_root, 0));
 
 	mutex_unlock(&cgroup_mutex);
+
+	/* Apply an implicit disable... */
+	if (!cgroup_enable_memory)
+		cgroup_disable("memory");
+
+	/* ...knowing that an explicit enable will override it. */
+	cgroup_disable_mask &= ~cgroup_enable_mask;
 
 	for_each_subsys(ss, ssid) {
 		if (ss->early_init) {
@@ -6193,12 +6203,18 @@ static int __init cgroup_enable(char *str)
 			    strcmp(token, ss->legacy_name))
 				continue;
 
-			cgroup_disable_mask &= ~(1 << i);
+			cgroup_enable_mask |= 1 << i;
 		}
 	}
 	return 1;
 }
 __setup("cgroup_enable=", cgroup_enable);
+
+static int __init cgroup_memory(char *str)
+{
+	return !kstrtobool(str, &cgroup_enable_memory);
+}
+__setup("cgroup_memory=", cgroup_memory);
 
 /**
  * css_tryget_online_from_dir - get corresponding css from a cgroup dentry
