@@ -101,6 +101,7 @@
 		status = "okay";
 	};
 
+	/*
 	spi_gpio {
 		status = "okay";
 
@@ -126,7 +127,7 @@
 			spi-3wire;
 			spi-cpha;
 			spi-cpol;
-		};*/
+		};
 		lsm303agr_acc@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -140,7 +141,7 @@
 			spi-cpha;
 			spi-cpol;
 		};
-	};
+	};*/
 };
 
 &fb {
@@ -178,31 +179,30 @@
 		#size-cells = <0>;
 	};*/
 
-	lsm6ds3@0 {
+	lsm6dsm@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		spi-max-frequency = <1000000>;
 
-		compatible = "st,lsm6ds3";
+		compatible = "st,lsm6dsm";
 		reg = <0>;
 		interrupt-parent = <&gpio>;
 		interrupts = <21 0x4>;
 		spi-cpha;
 		spi-cpol;
 	};
-	lsm6ds3h@1 {
+	lsm6dso@1 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		spi-max-frequency = <1000000>;
 
-		compatible = "st,lsm6ds3h";
+		compatible = "st,lsm6dso";
 		reg = <1>;
 		interrupt-parent = <&gpio>;
 		interrupts = <26 0x4>;
 		spi-cpha;
 		spi-cpol;
 	};
-
 };
 
 &i2c0 {
@@ -222,12 +222,12 @@
 		interrupt-parent = <&gpio>;
 		interrupts = <19 0x4>;
 	};
-	lsm6dsm@6b {
+	/*lsm6dsm@6b {
 		compatible = "st,lsm6dsm";
 		reg = <0x6b>;
 		interrupt-parent = <&gpio>;
 		interrupts = <12 0x4>;
-	};
+	};*/
 };
 
 &i2c2 {
