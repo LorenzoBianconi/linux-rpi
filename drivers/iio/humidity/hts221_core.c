@@ -16,6 +16,7 @@
 #include <linux/pm.h>
 #include <asm/unaligned.h>
 #include <linux/regmap.h>
+#include <linux/bitfield.h>
 
 #include "hts221.h"
 
@@ -136,7 +137,7 @@ static int hts221_check_whoami(struct hts221_hw *hw)
 {
 	int err, data;
 
-	err = regmap_read(hw->regmap, HTS221_REG_WHOAMI_ADDR, &data); 
+	err = regmap_read(hw->regmap, HTS221_REG_WHOAMI_ADDR, &data);
 	if (err < 0) {
 		dev_err(hw->dev, "failed to read whoami register\n");
 		return err;
@@ -162,8 +163,10 @@ static int hts221_update_odr(struct hts221_hw *hw, u8 odr)
 	if (i == ARRAY_SIZE(hts221_odr_table))
 		return -EINVAL;
 
-	err = hts221_write_with_mask(hw, HTS221_REG_CNTRL1_ADDR,
-				     HTS221_ODR_MASK, hts221_odr_table[i].val);
+	err = regmap_update_bits(hw->regmap, HTS221_REG_CNTRL1_ADDR,
+				 HTS221_ODR_MASK,
+				 FIELD_PREP(HTS221_ODR_MASK,
+					    hts221_odr_table[i].val));
 	if (err < 0)
 		return err;
 
@@ -176,8 +179,8 @@ static int hts221_update_avg(struct hts221_hw *hw,
 			     enum hts221_sensor_type type,
 			     u16 val)
 {
-	int i, err;
 	const struct hts221_avg *avg = &hts221_avg_list[type];
+	int i, err, data;
 
 	for (i = 0; i < HTS221_AVG_DEPTH; i++)
 		if (avg->avg_avl[i] == val)
@@ -186,7 +189,9 @@ static int hts221_update_avg(struct hts221_hw *hw,
 	if (i == HTS221_AVG_DEPTH)
 		return -EINVAL;
 
-	err = hts221_write_with_mask(hw, avg->addr, avg->mask, i);
+	data = ((i << __ffs(avg->mask)) & avg->mask);
+	err = regmap_update_bits(hw->regmap, avg->addr,
+				 avg->mask, data);
 	if (err < 0)
 		return err;
 
@@ -248,8 +253,9 @@ int hts221_set_enable(struct hts221_hw *hw, bool enable)
 {
 	int err;
 
-	err = hts221_write_with_mask(hw, HTS221_REG_CNTRL1_ADDR,
-				     HTS221_ENABLE_MASK, enable);
+	err = regmap_update_bits(hw->regmap, HTS221_REG_CNTRL1_ADDR,
+				 HTS221_ENABLE_MASK,
+				 FIELD_PREP(HTS221_ENABLE_MASK, enable));
 	if (err < 0)
 		return err;
 
@@ -582,8 +588,9 @@ int hts221_probe(struct device *dev, int irq, const char *name,
 	iio_dev->info = &hts221_info;
 
 	/* enable Block Data Update */
-	err = hts221_write_with_mask(hw, HTS221_REG_CNTRL1_ADDR,
-				     HTS221_BDU_MASK, 1);
+	err = regmap_update_bits(hw->regmap, HTS221_REG_CNTRL1_ADDR,
+				 HTS221_BDU_MASK,
+				 FIELD_PREP(HTS221_BDU_MASK, 1));
 	if (err < 0)
 		return err;
 
@@ -640,8 +647,9 @@ static int __maybe_unused hts221_suspend(struct device *dev)
 	struct iio_dev *iio_dev = dev_get_drvdata(dev);
 	struct hts221_hw *hw = iio_priv(iio_dev);
 
-	return hts221_write_with_mask(hw, HTS221_REG_CNTRL1_ADDR,
-				      HTS221_ENABLE_MASK, false);
+	return regmap_update_bits(hw->regmap, HTS221_REG_CNTRL1_ADDR,
+				  HTS221_ENABLE_MASK,
+				  FIELD_PREP(HTS221_ENABLE_MASK, false));
 }
 
 static int __maybe_unused hts221_resume(struct device *dev)
@@ -651,9 +659,10 @@ static int __maybe_unused hts221_resume(struct device *dev)
 	int err = 0;
 
 	if (hw->enabled)
-		err = hts221_write_with_mask(hw, HTS221_REG_CNTRL1_ADDR,
-					     HTS221_ENABLE_MASK, true);
-
+		err = regmap_update_bits(hw->regmap, HTS221_REG_CNTRL1_ADDR,
+					 HTS221_ENABLE_MASK,
+					 FIELD_PREP(HTS221_ENABLE_MASK,
+						    true));
 	return err;
 }
 

@@ -13,6 +13,7 @@
 #include <linux/interrupt.h>
 #include <linux/irqreturn.h>
 #include <linux/regmap.h>
+#include <linux/bitfield.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/trigger.h>
@@ -40,8 +41,9 @@ static int hts221_trig_set_state(struct iio_trigger *trig, bool state)
 	struct iio_dev *iio_dev = iio_trigger_get_drvdata(trig);
 	struct hts221_hw *hw = iio_priv(iio_dev);
 
-	return hts221_write_with_mask(hw, HTS221_REG_DRDY_EN_ADDR,
-				     HTS221_REG_DRDY_EN_MASK, state);
+	return regmap_update_bits(hw->regmap, HTS221_REG_DRDY_EN_ADDR,
+				  HTS221_REG_DRDY_EN_MASK,
+				  FIELD_PREP(HTS221_REG_DRDY_EN_MASK, state));
 }
 
 static const struct iio_trigger_ops hts221_trigger_ops = {
@@ -99,8 +101,10 @@ int hts221_allocate_trigger(struct hts221_hw *hw)
 		break;
 	}
 
-	err = hts221_write_with_mask(hw, HTS221_REG_DRDY_HL_ADDR,
-				     HTS221_REG_DRDY_HL_MASK, irq_active_low);
+	err = regmap_update_bits(hw->regmap, HTS221_REG_DRDY_HL_ADDR,
+				 HTS221_REG_DRDY_HL_MASK,
+				 FIELD_PREP(HTS221_REG_DRDY_HL_MASK,
+					    irq_active_low));
 	if (err < 0)
 		return err;
 
@@ -111,9 +115,10 @@ int hts221_allocate_trigger(struct hts221_hw *hw)
 		open_drain = true;
 	}
 
-	err = hts221_write_with_mask(hw, HTS221_REG_DRDY_PP_OD_ADDR,
-				     HTS221_REG_DRDY_PP_OD_MASK,
-				     open_drain);
+	err = regmap_update_bits(hw->regmap, HTS221_REG_DRDY_PP_OD_ADDR,
+				 HTS221_REG_DRDY_PP_OD_MASK,
+				 FIELD_PREP(HTS221_REG_DRDY_PP_OD_MASK,
+					    open_drain));
 	if (err < 0)
 		return err;
 

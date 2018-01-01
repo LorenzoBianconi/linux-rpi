@@ -44,12 +44,6 @@ struct hts221_hw {
 
 extern const struct dev_pm_ops hts221_pm_ops;
 
-static inline int hts221_write_with_mask(struct hts221_hw *hw, u8 addr,
-					 u8 mask, u8 val)
-{
-	return regmap_update_bits(hw->regmap, addr, mask, val << __ffs(mask));
-}
-
 int hts221_probe(struct device *dev, int irq, const char *name,
 		 struct regmap *regmap);
 int hts221_set_enable(struct hts221_hw *hw, bool enable);

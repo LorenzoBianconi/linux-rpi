@@ -16,13 +16,14 @@
 
 #include "hts221.h"
 
+#define HTS221_SPI_READ			BIT(7)
 #define HTS221_SPI_AUTO_INCREMENT	BIT(6)
 
 static const struct regmap_config hts221_spi_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.write_flag_mask = HTS221_SPI_AUTO_INCREMENT,
-	.read_flag_mask = HTS221_SPI_AUTO_INCREMENT,
+	.read_flag_mask = HTS221_SPI_READ | HTS221_SPI_AUTO_INCREMENT,
 };
 
 static int hts221_spi_probe(struct spi_device *spi)
@@ -35,6 +36,7 @@ static int hts221_spi_probe(struct spi_device *spi)
 			(int)PTR_ERR(regmap));
 		return PTR_ERR(regmap);
 	}
+
 	return hts221_probe(&spi->dev, spi->irq,
 			    spi->modalias, regmap);
 }
