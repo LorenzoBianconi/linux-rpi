@@ -244,6 +244,20 @@ static int spi_bitbang_bufs(struct spi_device *spi, struct spi_transfer *t)
 	struct spi_bitbang_cs	*cs = spi->controller_state;
 	unsigned		nsecs = cs->nsecs;
 
+	if (spi->mode & SPI_3WIRE) {
+		struct spi_bitbang *bitbang;
+		unsigned flags;
+		int err;
+
+		bitbang = spi_master_get_devdata(spi->master);
+		err = bitbang->set_line_direction(spi, !!(t->tx_buf));
+		if (err < 0)
+			return err;
+
+		flags = t->tx_buf ? SPI_MASTER_NO_RX : SPI_MASTER_NO_TX;
+		return cs->txrx_bufs(spi, cs->txrx_word, nsecs, t, flags);
+	}
+
 	return cs->txrx_bufs(spi, cs->txrx_word, nsecs, t, 0);
 }
 
