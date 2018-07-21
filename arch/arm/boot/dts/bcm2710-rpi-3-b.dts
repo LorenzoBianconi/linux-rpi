@@ -104,18 +104,14 @@
 		status = "okay";
 
 		compatible = "spi-gpio";
-		#address-cells = <0x1>;
-		#size-cells = <0x0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
 		pinctrl-names = "default";
 
-		/*gpio-miso = <&gpio 13 0>;
-		gpio-mosi = <&gpio 6 0>;
-		gpio-sck = <&gpio 20 1>;
-		cs-gpios = <&gpio 16 1>;*/
 		miso-gpios = <&gpio 13 0>;
 		mosi-gpios = <&gpio 6 0>;
-		sck-gpios = <&gpio 20 1>;
-		cs-gpios = <&gpio 16 1>;
+		sck-gpios = <&gpio 20 0>;
+		cs-gpios = <&gpio 16 0>;
 		num-chipselects = <1>;
 
 		lsm6dsm@0 {
@@ -127,9 +123,9 @@
 			reg = <0>;
 			interrupt-parent = <&gpio>;
 			interrupts = <26 0x4>;
+			st,drdy-int-pin = <1>;
 			spi-cpha;
 			spi-cpol;
-			st,drdy-int-pin = <1>;
 		};
 
 		/*hts221@0 {
