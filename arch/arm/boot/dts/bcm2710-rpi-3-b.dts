@@ -127,9 +127,9 @@
 	pinctrl-0 = <&spi0_pins &spi0_cs_pins>;
 	cs-gpios = <&gpio 8 1>, <&gpio 7 1>;
 
-	spidev0: spidev@0{
+	/*spidev0: spidev@0{
 		compatible = "spidev";
-		reg = <0>;	/* CE0 */
+		reg = <0>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 		spi-max-frequency = <125000000>;
@@ -137,10 +137,34 @@
 
 	spidev1: spidev@1{
 		compatible = "spidev";
-		reg = <1>;	/* CE1 */
+		reg = <1>;
 		#address-cells = <1>;
 		#size-cells = <0>;
-		spi-max-frequency = <125000000>;
+	};*/
+
+	/*lsm6dsm@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		spi-max-frequency = <1000000>;
+
+		compatible = "st,lsm6dsm";
+		reg = <0>;
+		interrupt-parent = <&gpio>;
+		interrupts = <21 0x4>;
+		spi-cpha;
+		spi-cpol;
+	};*/
+	lsm6dso@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		spi-max-frequency = <1000000>;
+
+		compatible = "st,lsm6dso";
+		reg = <1>;
+		interrupt-parent = <&gpio>;
+		interrupts = <26 IRQ_TYPE_LEVEL_HIGH>;
+		spi-cpha;
+		spi-cpol;
 	};
 };
 
@@ -151,7 +175,21 @@
 &i2c1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c1_pins>;
-	clock-frequency = <100000>;
+	clock-frequency = <1000000>;
+
+	hts221@5f {
+		compatible = "st,hts221";
+		reg = <0x5f>;
+		interrupt-parent = <&gpio>;
+		interrupts = <19 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	lsm6dsm@6b {
+		compatible = "st,lsm6dsm";
+		reg = <0x6b>;
+		interrupt-parent = <&gpio>;
+		interrupts = <12 IRQ_TYPE_LEVEL_HIGH>;
+	};
 };
 
 &i2c2 {
